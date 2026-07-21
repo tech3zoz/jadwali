@@ -109,6 +109,15 @@
 <section class="panel" id="panel-habits">
   <div class="add-card">
     <input id="habitInput" data-i18n-ph="habitPh" placeholder="New habit…">
+    <div class="seg small" id="habitFreqSeg">
+      <button type="button" class="seg-btn active" data-freq="daily" data-i18n="freq_daily">Daily</button>
+      <button type="button" class="seg-btn" data-freq="weekly" data-i18n="freq_weekly">Weekly</button>
+      <button type="button" class="seg-btn" data-freq="monthly" data-i18n="freq_monthly">Monthly</button>
+    </div>
+    <div class="row2">
+      <input id="habitGoal" type="number" inputmode="numeric" class="mono" data-i18n-ph="goalPh" placeholder="Goal (optional)">
+      <input id="habitUnit" type="text" data-i18n-ph="unitPh" placeholder="Unit (ml, times…)">
+    </div>
     <button class="primary" id="habitAdd" data-i18n="add">Add</button>
   </div>
   <div id="habitList"></div>

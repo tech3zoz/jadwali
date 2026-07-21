@@ -1,6 +1,6 @@
 // جدول عزيز — offline service worker
 // Bump CACHE_VERSION whenever app-shell files change to force an update.
-const CACHE_VERSION = 'jadwali-v2';
+const CACHE_VERSION = 'jadwali-v3';
 const APP_SHELL = [
   './',
   'index.html',

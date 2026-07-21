@@ -42,7 +42,9 @@ const T = {
     taskEmpty:'No tasks yet', pending:'Pending', done:'Done', taskAllDone:'All done 🎉',
     taskMovedDone:'Moved to "Done"', taskMovedPending:'Moved back to "Pending"', taskDeleted:'Task deleted', undo:'Undo',
     habitPh:'New habit… e.g. Drink water', habitEmpty:'No habits added',
-    habitNote:'Tap a habit each day you do it. The small dots show the last 7 days (green = done). Miss a day without tapping and the 🔥 streak resets to zero automatically.',
+    freq_daily:'Daily', freq_weekly:'Weekly', freq_monthly:'Monthly',
+    left:'left', goalPh:'Goal (optional)', unitPh:'Unit (ml, times…)', addAmountPh:'amount', save:'Save',
+    habitNote:'Choose a frequency (daily / weekly / monthly). Add an optional goal + unit to make it measurable — e.g. Drink water 2000 ml, or Gym 3 times/week. Tap ⚙️ on any habit to edit it. The dots show your last 7 periods; the 🔥 streak counts consecutive completed periods.',
     foodDivider:'🍽️ Food', foodCaloriesToday:"Today's calories",
     foodPh:'What did you eat / amount…', foodCalPh:'Calories (optional)', foodLog:'Log',
     foodEmpty:'No food logged yet', calUnit:'cal',
@@ -75,7 +77,9 @@ const T = {
     taskEmpty:'ما فيه مهام حالياً', pending:'باقي', done:'خلصت', taskAllDone:'خلصت المهام 🎉',
     taskMovedDone:'انتقلت لـ"خلصت"', taskMovedPending:'رجعت لـ"باقي"', taskDeleted:'تم حذف المهمة', undo:'تراجع',
     habitPh:'عادة جديدة… مثل: اشرب ماي', habitEmpty:'ما فيه عادات مضافة',
-    habitNote:'دوس على العادة كل يوم تسويها. النقاط الصغيرة توريك آخر 7 أيام (أخضر = سويتها). لو فوّت يوم بدون ما تدوس، الستريك 🔥 ينكسر ويرجع صفر تلقائي — ما يحتاج منك شي.',
+    freq_daily:'يومي', freq_weekly:'أسبوعي', freq_monthly:'شهري',
+    left:'باقي', goalPh:'الهدف (اختياري)', unitPh:'الوحدة (مل، مرات…)', addAmountPh:'كمية', save:'حفظ',
+    habitNote:'اختر التكرار (يومي / أسبوعي / شهري). تقدر تضيف هدف + وحدة عشان تصير قابلة للقياس — مثل: اشرب ماي ٢٠٠٠ مل، أو نادي ٣ مرات/أسبوع. دوس ⚙️ على أي عادة عشان تعدّلها. النقاط توريك آخر ٧ فترات، والستريك 🔥 يحسب الفترات المكتملة المتتالية.',
     foodDivider:'🍽️ الأكل', foodCaloriesToday:'سعرات اليوم',
     foodPh:'وش أكلت / الكمية…', foodCalPh:'سعرات (اختياري)', foodLog:'تسجيل',
     foodEmpty:'ما فيه تسجيلات أكل بعد', calUnit:'سعرة',
@@ -456,16 +460,36 @@ function showUndoToast(text, undoFn){
 function hideUndoToast(){ document.getElementById('undoToast').classList.remove('show'); }
 
 // ============================================================
-//  Habits
+//  Habits (daily / weekly / monthly, optional measurable goals)
+//    schema: { id, text, freq:'daily'|'weekly'|'monthly',
+//              goal:Number|null, unit:String|null, log:{ periodKey:amount } }
 // ============================================================
 function dstr(d){ return dateOnly(d).toISOString().slice(0,10); }
+
+function periodKeyForDate(d, freq){
+  if(freq === 'monthly') return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  if(freq === 'weekly'){ const s = new Date(d); s.setDate(s.getDate() - s.getDay()); return dstr(s); } // week starts Sunday
+  return dstr(d);
+}
+function shiftPeriod(d, freq, back){
+  const nd = new Date(d);
+  if(freq === 'monthly') nd.setMonth(nd.getMonth() - back);
+  else if(freq === 'weekly') nd.setDate(nd.getDate() - 7*back);
+  else nd.setDate(nd.getDate() - back);
+  return nd;
+}
+function habitFreq(h){ return h.freq || 'daily'; }
+function habitGoalNum(h){ return (h.goal && h.goal > 0) ? h.goal : 1; }
+function isMeasurable(h){ return !!(h.goal && h.goal > 0); }
+function habitAmount(h, key){ return (h.log && h.log[key]) || 0; }
+function habitDoneOn(h, d){ return habitAmount(h, periodKeyForDate(d, habitFreq(h))) >= habitGoalNum(h); }
 
 function loadHabits(){
   const raw = localStorage.getItem('aziz_habits');
   if(raw === null){
     const seed = [
-      { id:'seed1', text:'اشرب ماي', history:[] },
-      { id:'seed2', text:'اخذ حبوبي', history:[] }
+      { id:'seed1', text:'Drink water',   freq:'daily', goal:2000, unit:'ml', log:{} },
+      { id:'seed2', text:'Take vitamins', freq:'daily', goal:null, unit:null, log:{} }
     ];
     localStorage.setItem('aziz_habits', JSON.stringify(seed));
     return seed;
@@ -474,76 +498,145 @@ function loadHabits(){
   try{ items = JSON.parse(raw); }catch(e){ return []; }
   let migrated = false;
   items = items.map(h => {
-    if(!h.history){
-      migrated = true;
-      return { id:h.id, text:h.text, history: h.lastDone ? [h.lastDone] : [] };
-    }
-    return h;
+    if(h.log) return h;                                   // already new schema
+    migrated = true;                                      // migrate old check habits -> daily, log of 1s
+    const hist = h.history || (h.lastDone ? [h.lastDone] : []);
+    const log = {};
+    hist.forEach(d => { log[d] = 1; });
+    return { id:h.id, text:h.text, freq:'daily', goal:null, unit:null, log };
   });
   if(migrated) localStorage.setItem('aziz_habits', JSON.stringify(items));
   return items;
 }
 function saveHabits(h){ localStorage.setItem('aziz_habits', JSON.stringify(h)); }
 
-function computeStreak(history){
-  const set = new Set(history);
-  let streak = 0;
-  const cur = new Date();
-  if(!set.has(dstr(cur))) cur.setDate(cur.getDate() - 1);
-  while(set.has(dstr(cur))){ streak++; cur.setDate(cur.getDate() - 1); }
-  return streak;
+function computeStreak(h){
+  let count = 0; let cur = new Date(); const freq = habitFreq(h);
+  if(!habitDoneOn(h, cur)) cur = shiftPeriod(cur, freq, 1);   // current period may still be in progress
+  while(habitDoneOn(h, cur)){ count++; cur = shiftPeriod(cur, freq, 1); }
+  return count;
 }
-function last7(history){
-  const set = new Set(history);
-  const days = [];
-  for(let i = 6; i >= 0; i--){
-    const d = new Date(); d.setDate(d.getDate() - i);
-    days.push(set.has(dstr(d)));
-  }
-  return days;
+function lastPeriods(h, n){
+  const arr = []; const freq = habitFreq(h);
+  for(let i = n-1; i >= 0; i--) arr.push(habitDoneOn(h, shiftPeriod(new Date(), freq, i)));
+  return arr;
+}
+function quickChips(h){
+  const u = (h.unit || '').toLowerCase();
+  if(u === 'ml' || u === 'مل') return [250, 500];
+  if(u.includes('time') || u.includes('مر')) return [1];
+  if(u.includes('page') || u.includes('صفح')) return [5, 10];
+  const g = habitGoalNum(h);
+  return g >= 8 ? [1, Math.max(2, Math.round(g/4))] : [1];
 }
 
 function renderHabits(){
   const items = loadHabits();
   const el = document.getElementById('habitList');
-  const today = todayStr();
   if(!items.length){ el.innerHTML = `<div class="empty">${t('habitEmpty')}</div>`; return; }
   el.innerHTML = items.map(h => {
-    const done = h.history.includes(today);
-    const streak = computeStreak(h.history);
-    const dots = last7(h.history).map(on => `<span class="hdot ${on?'on':''}"></span>`).join('');
-    return `<div class="item-row" data-id="${h.id}">
-      <div class="chk ${done?'done':''}" data-action="toggle">${done?'✓':''}</div>
-      <div style="flex:1; min-width:0;">
-        <div class="item-text ${done?'done':''}">${escapeHtml(h.text)}</div>
-        <div class="hdots">${dots}</div>
-      </div>
-      ${streak > 0 ? `<div class="streak">🔥${streak}</div>` : ''}
-      <button class="icon-btn" data-action="del">✕</button>
-    </div>`;
+    const freq = habitFreq(h);
+    const key = periodKeyForDate(new Date(), freq);
+    const amt = habitAmount(h, key);
+    const goal = habitGoalNum(h);
+    const done = amt >= goal;
+    const measurable = isMeasurable(h);
+    const streak = computeStreak(h);
+    const dots = lastPeriods(h, 7).map(on => `<span class="hdot ${on?'on':''}"></span>`).join('');
+    const badge = freq !== 'daily' ? `<span class="freq-badge">${t('freq_'+freq)}</span>` : '';
+    const progress = measurable
+      ? `<div class="habit-progress mono">${amt} / ${h.goal} ${escapeHtml(h.unit||'')} · ${Math.max(0, h.goal-amt)} ${t('left')}</div>`
+      : '';
+    const chips = measurable
+      ? `<div class="habit-log">
+           ${quickChips(h).map(a => `<button class="qadd" data-action="add" data-amt="${a}">+${a}</button>`).join('')}
+           <input class="qadd-input mono" type="number" inputmode="numeric" placeholder="${t('addAmountPh')}">
+           <button class="qadd" data-action="addcustom">+</button>
+         </div>`
+      : '';
+    const editSeg = ['daily','weekly','monthly'].map(f =>
+      `<button type="button" class="seg-btn ${freq===f?'active':''}" data-action="setfreq" data-freq="${f}">${t('freq_'+f)}</button>`).join('');
+    const editPanel = `<div class="habit-edit">
+        <div class="seg small">${editSeg}</div>
+        <div class="row2">
+          <input class="edit-goal mono" type="number" inputmode="numeric" value="${h.goal||''}" placeholder="${t('goalPh')}">
+          <input class="edit-unit" type="text" value="${escapeHtml(h.unit||'')}" placeholder="${t('unitPh')}">
+        </div>
+        <button class="primary" data-action="saveedit">${t('save')}</button>
+      </div>`;
+    return `<div class="habit-card" data-id="${h.id}">
+        <div class="habit-main">
+          <div class="chk ${done?'done':''}" data-action="toggle">${done?'✓':''}</div>
+          <div class="habit-body">
+            <div class="item-text ${done?'done':''}">${escapeHtml(h.text)}${badge}</div>
+            ${progress}
+            <div class="hdots">${dots}</div>
+          </div>
+          ${streak > 0 ? `<div class="streak">🔥${streak}</div>` : ''}
+          <button class="icon-btn" data-action="settings">⚙️</button>
+          <button class="icon-btn" data-action="del">✕</button>
+        </div>
+        ${chips}
+        ${editPanel}
+      </div>`;
   }).join('');
 }
+
+let addHabitFreq = 'daily';
+document.getElementById('habitFreqSeg').addEventListener('click', e => {
+  const b = e.target.closest('[data-freq]'); if(!b) return;
+  addHabitFreq = b.dataset.freq;
+  document.querySelectorAll('#habitFreqSeg .seg-btn').forEach(x => x.classList.toggle('active', x === b));
+});
 document.getElementById('habitAdd').addEventListener('click', () => {
   const input = document.getElementById('habitInput');
   const text = input.value.trim(); if(!text) return;
+  const goalVal = document.getElementById('habitGoal').value;
+  const unitVal = document.getElementById('habitUnit').value.trim();
   const items = loadHabits();
-  items.push({ id: Date.now().toString(), text, history:[] });
-  saveHabits(items); input.value=''; renderHabits();
+  items.push({ id: Date.now().toString(), text, freq: addHabitFreq,
+    goal: goalVal ? Number(goalVal) : null, unit: unitVal || null, log:{} });
+  saveHabits(items);
+  input.value = ''; document.getElementById('habitGoal').value = ''; document.getElementById('habitUnit').value = '';
+  renderHabits();
 });
 document.getElementById('habitList').addEventListener('click', e => {
-  const row = e.target.closest('.item-row'); if(!row) return;
-  const id = row.dataset.id;
+  const card = e.target.closest('.habit-card'); if(!card) return;
+  const id = card.dataset.id;
+  const action = e.target.dataset.action;
   let items = loadHabits();
   const idx = items.findIndex(h => h.id === id);
-  const action = e.target.dataset.action;
-  if(action === 'del'){ items.splice(idx,1); }
-  else if(action === 'toggle'){
-    const h = items[idx]; const today = todayStr();
-    const set = new Set(h.history);
-    if(set.has(today)) set.delete(today); else set.add(today);
-    h.history = Array.from(set);
-  } else return;
-  saveHabits(items); renderHabits();
+  if(action === 'del'){ if(idx>-1) items.splice(idx,1); saveHabits(items); renderHabits(); return; }
+  if(idx === -1) return;
+  const h = items[idx];
+  const key = periodKeyForDate(new Date(), habitFreq(h));
+  h.log = h.log || {};
+  if(action === 'toggle'){
+    const goal = habitGoalNum(h);
+    if(habitAmount(h, key) >= goal) delete h.log[key]; else h.log[key] = goal;
+    saveHabits(items); renderHabits();
+  } else if(action === 'add'){
+    h.log[key] = (h.log[key] || 0) + (Number(e.target.dataset.amt) || 0);
+    saveHabits(items); renderHabits();
+  } else if(action === 'addcustom'){
+    const amt = Number(card.querySelector('.qadd-input').value) || 0;
+    if(!amt) return;
+    h.log[key] = Math.max(0, (h.log[key] || 0) + amt);
+    saveHabits(items); renderHabits();
+  } else if(action === 'settings'){
+    card.querySelector('.habit-edit').classList.toggle('open');
+  } else if(action === 'setfreq'){
+    card.querySelectorAll('.habit-edit [data-action="setfreq"]').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+  } else if(action === 'saveedit'){
+    const ep = card.querySelector('.habit-edit');
+    const fb = ep.querySelector('[data-action="setfreq"].active');
+    h.freq = fb ? fb.dataset.freq : habitFreq(h);
+    const gv = ep.querySelector('.edit-goal').value;
+    const uv = ep.querySelector('.edit-unit').value.trim();
+    h.goal = gv ? Number(gv) : null; h.unit = uv || null;
+    saveHabits(items); renderHabits();
+  }
 });
 
 // ============================================================
