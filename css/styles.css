@@ -303,22 +303,58 @@ nav.bottom button.active{color:var(--text); background:var(--surface-2); box-sha
 .shift-opt .so-hint{font-size:12px; color:var(--muted); font-weight:700; display:flex; align-items:center; gap:7px;}
 .shift-opt .so-swatch{width:12px; height:12px; border-radius:4px; flex:none;}
 
-/* ===== Habit cards (frequency + measurable goals) ===== */
+/* ===== Habits: week strip + colored cards ===== */
 .add-card .seg{margin-top:8px;}
 .seg.small .seg-btn{padding:9px 6px; font-size:12.5px;}
-.habit-card{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:11px 13px; margin-bottom:7px;}
-.habit-main{display:flex; align-items:center; gap:10px;}
-.habit-body{flex:1; min-width:0;}
-.freq-badge{font-size:9.5px; font-weight:800; color:var(--muted); border:1px solid var(--line); border-radius:6px; padding:1px 6px; margin-inline-start:6px; vertical-align:middle; white-space:nowrap;}
-.habit-progress{font-size:11.5px; color:var(--afternoon); font-weight:700; margin-top:4px;}
-.habit-log{display:flex; gap:6px; margin-top:10px; flex-wrap:wrap; align-items:center;}
+.picker-label{font-size:11px; font-weight:800; color:var(--muted); margin:12px 2px 7px;}
+
+.week-strip{display:flex; gap:4px; margin:2px 0 16px;}
+.ws-day{flex:1; display:flex; flex-direction:column; align-items:center; gap:7px; background:transparent; border:none; color:var(--muted); cursor:pointer; padding:2px 0; font-family:inherit;}
+.ws-wd{font-size:11px; font-weight:700;}
+.ws-num{width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:800; border:1.5px solid transparent;}
+.ws-day.today .ws-num{border-color:var(--muted);}
+.ws-day.sel .ws-wd{color:var(--text);}
+.ws-day.sel .ws-num{background:var(--day); color:var(--primary-text); border-color:var(--day);}
+
+.icon-row{display:flex; align-items:center; gap:10px;}
+.icon-input{width:50px; height:46px; text-align:center; font-size:22px; background:var(--bg); border:1px solid var(--line); border-radius:12px; color:var(--text); flex:none;}
+.icon-input:focus{outline:none; border-color:var(--day);}
+.emoji-list{display:flex; gap:6px; overflow-x:auto; flex:1; padding-bottom:2px; -webkit-overflow-scrolling:touch;}
+.emoji-btn{flex:none; width:40px; height:40px; border-radius:11px; border:1px solid var(--line); background:var(--surface); font-size:19px; cursor:pointer;}
+.emoji-btn:active{transform:scale(0.92);}
+.color-row{display:flex; gap:9px; flex-wrap:wrap;}
+.swatch{width:30px; height:30px; border-radius:50%; border:none; background:var(--c); cursor:pointer; flex:none;}
+.swatch.active{box-shadow:0 0 0 2px var(--bg), 0 0 0 4px var(--c);}
+
+.hcard{margin-bottom:10px; border-radius:18px; border:1px solid var(--line); overflow:hidden; background:var(--surface); --c:#2DD4BF;}
+.hcard-main{display:flex; align-items:center; gap:12px; padding:14px 15px;}
+.hcard-tap{display:flex; align-items:center; gap:12px; flex:1; min-width:0; cursor:pointer;}
+.hcard-icon{width:44px; height:44px; border-radius:13px; flex:none; display:flex; align-items:center; justify-content:center; font-size:22px; background:rgba(255,255,255,0.06);}
+.hcard-body{flex:1; min-width:0;}
+.hcard-name{font-size:15px; font-weight:800; word-break:break-word;}
+.hcard-count{display:inline-block; margin-top:6px; font-size:11px; font-weight:800; color:var(--muted); border:1px solid var(--line); border-radius:7px; padding:2px 8px;}
+.hcard-streak{font-size:11px; font-weight:800; color:var(--afternoon); flex:none; align-self:flex-start; white-space:nowrap;}
+.hcard-check{width:34px; height:34px; border-radius:50%; flex:none; background:transparent; cursor:pointer; font-size:16px; color:transparent; border:2px solid var(--muted); display:flex; align-items:center; justify-content:center;}
+.hcard-check.done{background:var(--c); border-color:var(--c); color:#04231a;}
+.hcard-panel{display:none; padding:0 15px 15px;}
+.hcard-panel.open{display:block;}
+.hcard-panel .row2{display:flex; gap:8px; margin-top:8px;}
+.hcard-panel .efield{flex:1; width:100%; background:var(--bg); border:1px solid var(--line); color:var(--text); border-radius:9px; padding:9px 10px; font-family:inherit; font-size:13px;}
+.hcard-panel .efield:focus{outline:none; border-color:var(--day);}
+.panel-actions{display:flex; gap:8px; margin-top:11px;}
+.panel-actions .primary{flex:1; background:var(--day); color:var(--primary-text); border:none; border-radius:9px; padding:10px; font-size:13.5px; font-weight:800; cursor:pointer; font-family:inherit;}
+.btn-del{background:transparent; border:1px solid var(--line); color:var(--high); border-radius:9px; padding:9px 16px; font-size:15px; cursor:pointer; flex:none;}
+
+.habit-log{display:flex; gap:6px; margin-top:11px; flex-wrap:wrap; align-items:center;}
 .qadd{background:var(--surface-2); border:1px solid var(--line); color:var(--text); border-radius:9px; padding:7px 11px; font-size:12.5px; font-weight:800; cursor:pointer; font-family:inherit;}
 .qadd:active{transform:scale(0.94);}
 .qadd-input{width:78px; background:var(--bg); border:1px solid var(--line); color:var(--text); border-radius:9px; padding:7px 9px; font-size:12.5px;}
 .qadd-input:focus{outline:none; border-color:var(--day);}
-.habit-edit{display:none; margin-top:11px; padding-top:11px; border-top:1px solid var(--line);}
-.habit-edit.open{display:block;}
-.habit-edit .row2{display:flex; gap:8px; margin-top:8px;}
-.habit-edit input{flex:1; width:100%; background:var(--bg); border:1px solid var(--line); color:var(--text); border-radius:9px; padding:9px 10px; font-family:inherit; font-size:13px;}
-.habit-edit input:focus{outline:none; border-color:var(--day);}
-.habit-edit .primary{width:100%; margin-top:9px; background:var(--day); color:var(--primary-text); border:none; border-radius:9px; padding:10px; font-size:13.5px; font-weight:800; cursor:pointer; font-family:inherit;}
+
+/* color-mix tinting where supported (modern Safari/Chrome) */
+@supports (background: color-mix(in srgb, red, blue)){
+  .hcard{background:color-mix(in srgb, var(--c) 13%, var(--surface)); border-color:color-mix(in srgb, var(--c) 32%, var(--line));}
+  .hcard.done{background:color-mix(in srgb, var(--c) 24%, var(--surface));}
+  .hcard-icon{background:color-mix(in srgb, var(--c) 22%, transparent);}
+  .hcard-check{border-color:color-mix(in srgb, var(--c) 55%, var(--line));}
+}

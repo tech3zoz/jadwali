@@ -43,6 +43,8 @@ const T = {
     taskMovedDone:'Moved to "Done"', taskMovedPending:'Moved back to "Pending"', taskDeleted:'Task deleted', undo:'Undo',
     habitPh:'New habit… e.g. Drink water', habitEmpty:'No habits added',
     freq_daily:'Daily', freq_weekly:'Weekly', freq_monthly:'Monthly',
+    streakUnit_daily:'Day', streakUnit_weekly:'Week', streakUnit_monthly:'Month',
+    iconLabel:'Icon', colorLabel:'Color',
     left:'left', goalPh:'Goal (optional)', unitPh:'Unit (ml, times…)', addAmountPh:'amount', save:'Save',
     habitNote:'Choose a frequency (daily / weekly / monthly). Add an optional goal + unit to make it measurable — e.g. Drink water 2000 ml, or Gym 3 times/week. Tap ⚙️ on any habit to edit it. The dots show your last 7 periods; the 🔥 streak counts consecutive completed periods.',
     foodDivider:'🍽️ Food', foodCaloriesToday:"Today's calories",
@@ -78,6 +80,8 @@ const T = {
     taskMovedDone:'انتقلت لـ"خلصت"', taskMovedPending:'رجعت لـ"باقي"', taskDeleted:'تم حذف المهمة', undo:'تراجع',
     habitPh:'عادة جديدة… مثل: اشرب ماي', habitEmpty:'ما فيه عادات مضافة',
     freq_daily:'يومي', freq_weekly:'أسبوعي', freq_monthly:'شهري',
+    streakUnit_daily:'يوم', streakUnit_weekly:'أسبوع', streakUnit_monthly:'شهر',
+    iconLabel:'الأيقونة', colorLabel:'اللون',
     left:'باقي', goalPh:'الهدف (اختياري)', unitPh:'الوحدة (مل، مرات…)', addAmountPh:'كمية', save:'حفظ',
     habitNote:'اختر التكرار (يومي / أسبوعي / شهري). تقدر تضيف هدف + وحدة عشان تصير قابلة للقياس — مثل: اشرب ماي ٢٠٠٠ مل، أو نادي ٣ مرات/أسبوع. دوس ⚙️ على أي عادة عشان تعدّلها. النقاط توريك آخر ٧ فترات، والستريك 🔥 يحسب الفترات المكتملة المتتالية.',
     foodDivider:'🍽️ الأكل', foodCaloriesToday:'سعرات اليوم',
@@ -460,11 +464,20 @@ function showUndoToast(text, undoFn){
 function hideUndoToast(){ document.getElementById('undoToast').classList.remove('show'); }
 
 // ============================================================
-//  Habits (daily / weekly / monthly, optional measurable goals)
-//    schema: { id, text, freq:'daily'|'weekly'|'monthly',
-//              goal:Number|null, unit:String|null, log:{ periodKey:amount } }
+//  Habits (daily/weekly/monthly, measurable goals, icon + color)
+//    schema: { id, text, freq, goal, unit, icon, color, log:{periodKey:amount} }
 // ============================================================
 function dstr(d){ return dateOnly(d).toISOString().slice(0,10); }
+
+const HABIT_COLORS = ['#2DD4BF','#4ADE80','#38BDF8','#A78BFA','#FB7185','#F5B942','#F97316','#F472B6'];
+const EMOJI_SUGGEST = ['⭐','💧','🏋️','💊','📷','🧘','🏃','🚶','🛌','📖','🍎','☀️','🌙','🙏','💪','🧠','📿','🥗','🧴','✍️'];
+const WD_MON = { en:['Mo','Tu','We','Th','Fr','Sa','Su'], ar:['إث','ثل','أر','خم','جم','سب','أح'] };
+const DEFAULT_COLOR = HABIT_COLORS[0];
+
+let habitDay = dateOnly(new Date());   // day selected in the week strip
+let addHabitFreq = 'daily';
+let addColor = DEFAULT_COLOR;
+let addIcon  = '⭐';
 
 function periodKeyForDate(d, freq){
   if(freq === 'monthly') return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
@@ -488,8 +501,8 @@ function loadHabits(){
   const raw = localStorage.getItem('aziz_habits');
   if(raw === null){
     const seed = [
-      { id:'seed1', text:'Drink water',   freq:'daily', goal:2000, unit:'ml', log:{} },
-      { id:'seed2', text:'Take vitamins', freq:'daily', goal:null, unit:null, log:{} }
+      { id:'seed1', text:'Drink water',   freq:'daily', goal:2000, unit:'ml', icon:'💧', color:'#38BDF8', log:{} },
+      { id:'seed2', text:'Take vitamins', freq:'daily', goal:null, unit:null, icon:'💊', color:'#4ADE80', log:{} }
     ];
     localStorage.setItem('aziz_habits', JSON.stringify(seed));
     return seed;
@@ -498,12 +511,18 @@ function loadHabits(){
   try{ items = JSON.parse(raw); }catch(e){ return []; }
   let migrated = false;
   items = items.map(h => {
-    if(h.log) return h;                                   // already new schema
-    migrated = true;                                      // migrate old check habits -> daily, log of 1s
-    const hist = h.history || (h.lastDone ? [h.lastDone] : []);
-    const log = {};
-    hist.forEach(d => { log[d] = 1; });
-    return { id:h.id, text:h.text, freq:'daily', goal:null, unit:null, log };
+    let nh = h;
+    if(!nh.log){                                          // migrate old check habits -> daily, log of 1s
+      migrated = true;
+      const hist = nh.history || (nh.lastDone ? [nh.lastDone] : []);
+      const log = {}; hist.forEach(d => { log[d] = 1; });
+      nh = { id:nh.id, text:nh.text, freq:'daily', goal:null, unit:null, log };
+    }
+    if(nh.icon === undefined || nh.color === undefined){  // backfill icon/color
+      migrated = true;
+      nh = Object.assign({ icon:'⭐', color:DEFAULT_COLOR }, nh);
+    }
+    return nh;
   });
   if(migrated) localStorage.setItem('aziz_habits', JSON.stringify(items));
   return items;
@@ -512,14 +531,9 @@ function saveHabits(h){ localStorage.setItem('aziz_habits', JSON.stringify(h)); 
 
 function computeStreak(h){
   let count = 0; let cur = new Date(); const freq = habitFreq(h);
-  if(!habitDoneOn(h, cur)) cur = shiftPeriod(cur, freq, 1);   // current period may still be in progress
+  if(!habitDoneOn(h, cur)) cur = shiftPeriod(cur, freq, 1);   // today may still be in progress
   while(habitDoneOn(h, cur)){ count++; cur = shiftPeriod(cur, freq, 1); }
   return count;
-}
-function lastPeriods(h, n){
-  const arr = []; const freq = habitFreq(h);
-  for(let i = n-1; i >= 0; i--) arr.push(habitDoneOn(h, shiftPeriod(new Date(), freq, i)));
-  return arr;
 }
 function quickChips(h){
   const u = (h.unit || '').toLowerCase();
@@ -529,6 +543,30 @@ function quickChips(h){
   const g = habitGoalNum(h);
   return g >= 8 ? [1, Math.max(2, Math.round(g/4))] : [1];
 }
+function colorSwatches(sel){
+  return HABIT_COLORS.map(c => `<button type="button" class="swatch ${c===sel?'active':''}" data-color="${c}" style="--c:${c}"></button>`).join('');
+}
+function emojiButtons(){
+  return EMOJI_SUGGEST.map(e => `<button type="button" class="emoji-btn">${e}</button>`).join('');
+}
+
+function renderWeekStrip(){
+  const el = document.getElementById('weekStrip');
+  const today = dateOnly(new Date());
+  const monday = new Date(today); monday.setDate(today.getDate() - ((today.getDay()+6)%7));
+  const wd = WD_MON[lang] || WD_MON.en;
+  let html = '';
+  for(let i=0; i<7; i++){
+    const d = new Date(monday); d.setDate(monday.getDate()+i);
+    const sel = d.getTime() === habitDay.getTime();
+    const isToday = d.getTime() === today.getTime();
+    html += `<button class="ws-day ${sel?'sel':''} ${isToday?'today':''}" data-date="${dstr(d)}">
+      <span class="ws-wd">${wd[i]}</span>
+      <span class="ws-num mono">${d.getDate()}</span>
+    </button>`;
+  }
+  el.innerHTML = html;
+}
 
 function renderHabits(){
   const items = loadHabits();
@@ -536,17 +574,14 @@ function renderHabits(){
   if(!items.length){ el.innerHTML = `<div class="empty">${t('habitEmpty')}</div>`; return; }
   el.innerHTML = items.map(h => {
     const freq = habitFreq(h);
-    const key = periodKeyForDate(new Date(), freq);
+    const key = periodKeyForDate(habitDay, freq);
     const amt = habitAmount(h, key);
     const goal = habitGoalNum(h);
     const done = amt >= goal;
     const measurable = isMeasurable(h);
     const streak = computeStreak(h);
-    const dots = lastPeriods(h, 7).map(on => `<span class="hdot ${on?'on':''}"></span>`).join('');
-    const badge = freq !== 'daily' ? `<span class="freq-badge">${t('freq_'+freq)}</span>` : '';
-    const progress = measurable
-      ? `<div class="habit-progress mono">${amt} / ${h.goal} ${escapeHtml(h.unit||'')} · ${Math.max(0, h.goal-amt)} ${t('left')}</div>`
-      : '';
+    const badgeFreq = freq !== 'daily' ? ` · ${t('freq_'+freq)}` : '';
+    const countText = `${amt}/${h.goal || 1}${h.unit ? ' ' + escapeHtml(h.unit) : ''}${badgeFreq}`;
     const chips = measurable
       ? `<div class="habit-log">
            ${quickChips(h).map(a => `<button class="qadd" data-action="add" data-amt="${a}">+${a}</button>`).join('')}
@@ -556,33 +591,65 @@ function renderHabits(){
       : '';
     const editSeg = ['daily','weekly','monthly'].map(f =>
       `<button type="button" class="seg-btn ${freq===f?'active':''}" data-action="setfreq" data-freq="${f}">${t('freq_'+f)}</button>`).join('');
-    const editPanel = `<div class="habit-edit">
-        <div class="seg small">${editSeg}</div>
-        <div class="row2">
-          <input class="edit-goal mono" type="number" inputmode="numeric" value="${h.goal||''}" placeholder="${t('goalPh')}">
-          <input class="edit-unit" type="text" value="${escapeHtml(h.unit||'')}" placeholder="${t('unitPh')}">
-        </div>
-        <button class="primary" data-action="saveedit">${t('save')}</button>
-      </div>`;
-    return `<div class="habit-card" data-id="${h.id}">
-        <div class="habit-main">
-          <div class="chk ${done?'done':''}" data-action="toggle">${done?'✓':''}</div>
-          <div class="habit-body">
-            <div class="item-text ${done?'done':''}">${escapeHtml(h.text)}${badge}</div>
-            ${progress}
-            <div class="hdots">${dots}</div>
-          </div>
-          ${streak > 0 ? `<div class="streak">🔥${streak}</div>` : ''}
-          <button class="icon-btn" data-action="settings">⚙️</button>
-          <button class="icon-btn" data-action="del">✕</button>
-        </div>
+    const panel = `<div class="hcard-panel">
         ${chips}
-        ${editPanel}
+        <div class="picker-label">${t('iconLabel')}</div>
+        <div class="icon-row">
+          <input class="edit-icon icon-input" maxlength="2" value="${escapeHtml(h.icon||'⭐')}">
+          <div class="emoji-list">${emojiButtons()}</div>
+        </div>
+        <div class="picker-label">${t('colorLabel')}</div>
+        <div class="color-row edit-colors">${colorSwatches(h.color||DEFAULT_COLOR)}</div>
+        <div class="seg small" style="margin-top:12px;">${editSeg}</div>
+        <div class="row2">
+          <input class="edit-goal efield mono" type="number" inputmode="numeric" value="${h.goal||''}" placeholder="${t('goalPh')}">
+          <input class="edit-unit efield" type="text" value="${escapeHtml(h.unit||'')}" placeholder="${t('unitPh')}">
+        </div>
+        <div class="panel-actions">
+          <button class="primary" data-action="saveedit">${t('save')}</button>
+          <button class="btn-del" data-action="del">🗑️</button>
+        </div>
+      </div>`;
+    return `<div class="hcard ${done?'done':''}" data-id="${h.id}" style="--c:${h.color||DEFAULT_COLOR}">
+        <div class="hcard-main">
+          <div class="hcard-tap" data-action="expand">
+            <div class="hcard-icon">${h.icon||'⭐'}</div>
+            <div class="hcard-body">
+              <div class="hcard-name">${escapeHtml(h.text)}</div>
+              <div class="hcard-count mono">${countText}</div>
+            </div>
+            ${streak > 0 ? `<div class="hcard-streak">🔥 ${streak} ${t('streakUnit_'+freq)}</div>` : ''}
+          </div>
+          <button class="hcard-check ${done?'done':''}" data-action="toggle">✓</button>
+        </div>
+        ${panel}
       </div>`;
   }).join('');
 }
 
-let addHabitFreq = 'daily';
+// ---- Week strip: pick the day ----
+document.getElementById('weekStrip').addEventListener('click', e => {
+  const b = e.target.closest('[data-date]'); if(!b) return;
+  habitDay = dateOnly(new Date(b.dataset.date + 'T00:00:00'));
+  renderWeekStrip(); renderHabits();
+});
+
+// ---- Add-form pickers ----
+function setupHabitAddPickers(){
+  document.getElementById('emojiSuggest').innerHTML = emojiButtons();
+  document.getElementById('habitColorRow').innerHTML = colorSwatches(addColor);
+  document.getElementById('habitIcon').value = addIcon;
+}
+document.getElementById('emojiSuggest').addEventListener('click', e => {
+  const b = e.target.closest('.emoji-btn'); if(!b) return;
+  addIcon = b.textContent; document.getElementById('habitIcon').value = addIcon;
+});
+document.getElementById('habitIcon').addEventListener('input', e => { addIcon = e.target.value.trim() || '⭐'; });
+document.getElementById('habitColorRow').addEventListener('click', e => {
+  const b = e.target.closest('[data-color]'); if(!b) return;
+  addColor = b.dataset.color;
+  document.querySelectorAll('#habitColorRow .swatch').forEach(x => x.classList.toggle('active', x === b));
+});
 document.getElementById('habitFreqSeg').addEventListener('click', e => {
   const b = e.target.closest('[data-freq]'); if(!b) return;
   addHabitFreq = b.dataset.freq;
@@ -595,26 +662,39 @@ document.getElementById('habitAdd').addEventListener('click', () => {
   const unitVal = document.getElementById('habitUnit').value.trim();
   const items = loadHabits();
   items.push({ id: Date.now().toString(), text, freq: addHabitFreq,
-    goal: goalVal ? Number(goalVal) : null, unit: unitVal || null, log:{} });
+    goal: goalVal ? Number(goalVal) : null, unit: unitVal || null,
+    icon: (document.getElementById('habitIcon').value.trim() || '⭐'), color: addColor, log:{} });
   saveHabits(items);
   input.value = ''; document.getElementById('habitGoal').value = ''; document.getElementById('habitUnit').value = '';
+  addIcon = '⭐'; document.getElementById('habitIcon').value = addIcon;
   renderHabits();
 });
+
+// ---- Card interactions ----
 document.getElementById('habitList').addEventListener('click', e => {
-  const card = e.target.closest('.habit-card'); if(!card) return;
+  const card = e.target.closest('.hcard'); if(!card) return;
   const id = card.dataset.id;
-  const action = e.target.dataset.action;
   let items = loadHabits();
   const idx = items.findIndex(h => h.id === id);
-  if(action === 'del'){ if(idx>-1) items.splice(idx,1); saveHabits(items); renderHabits(); return; }
   if(idx === -1) return;
   const h = items[idx];
-  const key = periodKeyForDate(new Date(), habitFreq(h));
+
+  // emoji / color pickers inside this card's panel (handled before data-action)
+  const emojiBtn = e.target.closest('.hcard-panel .emoji-btn');
+  if(emojiBtn){ card.querySelector('.edit-icon').value = emojiBtn.textContent; return; }
+  const swatch = e.target.closest('.hcard-panel .swatch');
+  if(swatch){ card.querySelectorAll('.edit-colors .swatch').forEach(s => s.classList.remove('active')); swatch.classList.add('active'); return; }
+
+  const action = e.target.dataset.action || (e.target.closest('[data-action]') || {}).dataset?.action;
+  const key = periodKeyForDate(habitDay, habitFreq(h));
   h.log = h.log || {};
-  if(action === 'toggle'){
+  if(action === 'del'){ items.splice(idx,1); saveHabits(items); renderHabits(); }
+  else if(action === 'toggle'){
     const goal = habitGoalNum(h);
     if(habitAmount(h, key) >= goal) delete h.log[key]; else h.log[key] = goal;
     saveHabits(items); renderHabits();
+  } else if(action === 'expand'){
+    card.querySelector('.hcard-panel').classList.toggle('open');
   } else if(action === 'add'){
     h.log[key] = (h.log[key] || 0) + (Number(e.target.dataset.amt) || 0);
     saveHabits(items); renderHabits();
@@ -623,17 +703,18 @@ document.getElementById('habitList').addEventListener('click', e => {
     if(!amt) return;
     h.log[key] = Math.max(0, (h.log[key] || 0) + amt);
     saveHabits(items); renderHabits();
-  } else if(action === 'settings'){
-    card.querySelector('.habit-edit').classList.toggle('open');
   } else if(action === 'setfreq'){
-    card.querySelectorAll('.habit-edit [data-action="setfreq"]').forEach(b => b.classList.remove('active'));
+    card.querySelectorAll('.hcard-panel [data-action="setfreq"]').forEach(b => b.classList.remove('active'));
     e.target.classList.add('active');
   } else if(action === 'saveedit'){
-    const ep = card.querySelector('.habit-edit');
-    const fb = ep.querySelector('[data-action="setfreq"].active');
+    const p = card.querySelector('.hcard-panel');
+    const fb = p.querySelector('[data-action="setfreq"].active');
+    const sw = p.querySelector('.edit-colors .swatch.active');
     h.freq = fb ? fb.dataset.freq : habitFreq(h);
-    const gv = ep.querySelector('.edit-goal').value;
-    const uv = ep.querySelector('.edit-unit').value.trim();
+    h.icon = p.querySelector('.edit-icon').value.trim() || '⭐';
+    h.color = sw ? sw.dataset.color : (h.color || DEFAULT_COLOR);
+    const gv = p.querySelector('.edit-goal').value;
+    const uv = p.querySelector('.edit-unit').value.trim();
     h.goal = gv ? Number(gv) : null; h.unit = uv || null;
     saveHabits(items); renderHabits();
   }
@@ -841,7 +922,7 @@ function rerenderAll(){
   renderMonthGrid();
   renderQuickView(quickViewDays);
   renderAppt(); renderUpcomingWidget();
-  renderTasks(); renderHabits(); renderFood(); renderIdeas();
+  renderTasks(); renderWeekStrip(); renderHabits(); renderFood(); renderIdeas();
   updateHero();
   renderSettings();
 }
@@ -897,7 +978,8 @@ applyLangDir();
 applyTheme();
 document.getElementById('apptDate').value = todayStr();
 applyStaticI18n();
-renderMonthGrid(); renderAppt(); renderUpcomingWidget(); renderTasks(); renderHabits(); renderFood(); renderIdeas(); updateHero();
+setupHabitAddPickers();
+renderMonthGrid(); renderAppt(); renderUpcomingWidget(); renderTasks(); renderWeekStrip(); renderHabits(); renderFood(); renderIdeas(); updateHero();
 setInterval(updateHero, 1000);
 
 // ---------- Service worker (offline / installable PWA) ----------
