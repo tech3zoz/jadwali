@@ -1,19 +1,118 @@
-// ---------- Shift engine ----------
-const ANCHOR = new Date(2026, 6, 5);
+// ============================================================
+//  Settings (language / theme / shift rotation)
+// ============================================================
+let lang  = localStorage.getItem('aziz_lang')  || 'en';        // 'en' | 'ar'
+let theme = localStorage.getItem('aziz_theme') || 'minimal';   // 'minimal' | 'starry'
+let shiftPhase = parseInt(localStorage.getItem('aziz_shift_phase'), 10);
+if(isNaN(shiftPhase)) shiftPhase = 0;                          // 0..4 (phase offset in the 5-day cycle)
+
+function saveSetting(key, val){ localStorage.setItem(key, val); }
+
+// ============================================================
+//  i18n dictionaries
+// ============================================================
+const WEEKDAYS_I18N = {
+  ar: ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'],
+  en: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+};
+const MONTHS_I18N = {
+  ar: ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'],
+  en: ['January','February','March','April','May','June','July','August','September','October','November','December']
+};
+const SHIFT_LABELS = {
+  ar: { day:'صباحي', afternoon:'عصر', night:'ليل', off:'إجازة' },
+  en: { day:'Day',   afternoon:'Afternoon', night:'Night', off:'Off' }
+};
+const T = {
+  en: {
+    appName:'Jadwali', tagline:"Shift organizer",
+    loading:'Loading…',
+    navShifts:'Shifts', navAppt:'Appointments', navTasks:'Tasks', navHabits:'Habits', navIdeas:'Ideas',
+    todayBtn:'Today ▾', rangeToday:'Today', range3:'3 days', rangeWeek:'Week',
+    heroOnNow:"You're on shift now", heroNext:'Next shift', heroNone:'No upcoming shift',
+    heroEnds:'Ends', heroStarts:'Starts',
+    qvToday:'Today', qv3:'Next 3 days', qvWeek:'Next week', qvOff:'Off',
+    apptNamePh:'Appointment name…', apptAdd:'Add appointment',
+    apptNote:'Adding an appointment auto-downloads a small calendar file — open it and your phone asks "Add to Calendar". You can re-download it anytime from the 📅 button next to the appointment.',
+    apptEmpty:'No appointments added', apptWriteName:'Enter an appointment name', apptChooseDate:'Choose a date',
+    apptAdded:'Added ✓ — open the calendar file that downloaded to confirm',
+    upcomingTitle:'🗓️ Upcoming', today:'Today', tomorrow:'Tomorrow',
+    taskPh:'Add a new task…', add:'Add',
+    taskNote:'Tap the colored dot to change priority (red = important, yellow = medium, teal = low) — important ones rise to the top automatically.',
+    taskEmpty:'No tasks yet', pending:'Pending', done:'Done', taskAllDone:'All done 🎉',
+    taskMovedDone:'Moved to "Done"', taskMovedPending:'Moved back to "Pending"', taskDeleted:'Task deleted', undo:'Undo',
+    habitPh:'New habit… e.g. Drink water', habitEmpty:'No habits added',
+    habitNote:'Tap a habit each day you do it. The small dots show the last 7 days (green = done). Miss a day without tapping and the 🔥 streak resets to zero automatically.',
+    foodDivider:'🍽️ Food', foodCaloriesToday:"Today's calories",
+    foodPh:'What did you eat / amount…', foodCalPh:'Calories (optional)', foodLog:'Log',
+    foodEmpty:'No food logged yet', calUnit:'cal',
+    ideaTitlePh:'Idea title…', acctTech:'🎬 Tech — @tech3zoz', acctChef:'🍳 Cooking — @chef3zoz',
+    ideaScriptPh:'Script space (optional)… add it now or later', ideaAdd:'Add idea',
+    filterAll:'All', filterTech:'🎬 Tech', filterChef:'🍳 Cooking',
+    ideaNote:'Open any idea later to add/edit its script or publish date. I can’t see your ideas inside the app — if you want help with a script, tell me here in chat and paste it into the script box yourself.',
+    ideaEmpty:'No ideas added', ideaNoScript:'No script yet — tap ✏️ to add', scheduledTitle:'📆 Scheduled to publish',
+    tagTech:'🎬 Tech', tagChef:'🍳 Cooking',
+    settings:'Settings', settingsLanguage:'Language', settingsTheme:'Theme', settingsShift:'My shift rotation',
+    langAr:'العربية', langEn:'English', themeMinimal:'Minimal', themeStarry:'Starry',
+    shiftHint:'Pick the rotation that matches your real schedule — the hint shows what today would be.',
+    shiftTodayIs:'Today', shiftLabel:'Rotation', close:'Close'
+  },
+  ar: {
+    appName:'جدولي', tagline:'منظّم الدوام',
+    loading:'جاري التحميل…',
+    navShifts:'الدوام', navAppt:'مواعيدي', navTasks:'المهام', navHabits:'العادات', navIdeas:'أفكار',
+    todayBtn:'اليوم ▾', rangeToday:'اليوم', range3:'٣ أيام', rangeWeek:'أسبوع',
+    heroOnNow:'أنت بالدوام الحين', heroNext:'الشفت الجاي', heroNone:'ما فيه شفت قريب',
+    heroEnds:'ينتهي', heroStarts:'يبدأ',
+    qvToday:'اليوم', qv3:'٣ أيام الجاية', qvWeek:'الأسبوع الجاي', qvOff:'راحة',
+    apptNamePh:'اسم الموعد…', apptAdd:'إضافة الموعد',
+    apptNote:'لما تضيف موعد بينزل ملف تقويم صغير بالتنزيلات تلقائي — افتحه وبيسألك "Add to Calendar" مباشرة. تقدر تنزّله ثانية من زر 📅 بجانب الموعد بأي وقت.',
+    apptEmpty:'ما فيه مواعيد مضافة', apptWriteName:'اكتب اسم الموعد', apptChooseDate:'اختر التاريخ',
+    apptAdded:'تمت الإضافة ✓ — افتح ملف التقويم اللي نزل عشان تأكد الإضافة',
+    upcomingTitle:'🗓️ مواعيد قريبة', today:'اليوم', tomorrow:'باجر',
+    taskPh:'أضف مهمة جديدة…', add:'إضافة',
+    taskNote:'اضغط النقطة الملونة لتغيير الأولوية (أحمر مهم، أصفر متوسط، تركواز بسيط) — المهم يطلع فوق تلقائي.',
+    taskEmpty:'ما فيه مهام حالياً', pending:'باقي', done:'خلصت', taskAllDone:'خلصت المهام 🎉',
+    taskMovedDone:'انتقلت لـ"خلصت"', taskMovedPending:'رجعت لـ"باقي"', taskDeleted:'تم حذف المهمة', undo:'تراجع',
+    habitPh:'عادة جديدة… مثل: اشرب ماي', habitEmpty:'ما فيه عادات مضافة',
+    habitNote:'دوس على العادة كل يوم تسويها. النقاط الصغيرة توريك آخر 7 أيام (أخضر = سويتها). لو فوّت يوم بدون ما تدوس، الستريك 🔥 ينكسر ويرجع صفر تلقائي — ما يحتاج منك شي.',
+    foodDivider:'🍽️ الأكل', foodCaloriesToday:'سعرات اليوم',
+    foodPh:'وش أكلت / الكمية…', foodCalPh:'سعرات (اختياري)', foodLog:'تسجيل',
+    foodEmpty:'ما فيه تسجيلات أكل بعد', calUnit:'سعرة',
+    ideaTitlePh:'اسم الفكرة…', acctTech:'🎬 تك — @tech3zoz', acctChef:'🍳 طبخ — @chef3zoz',
+    ideaScriptPh:'مساحة السكربت (اختياري)… تقدر تضيفه الحين أو بعدين', ideaAdd:'إضافة الفكرة',
+    filterAll:'الكل', filterTech:'🎬 تك', filterChef:'🍳 طبخ',
+    ideaNote:'أي فكرة تضيفها تقدر تفتحها بعدين وتضيف/تعدل السكربت أو تاريخ النشر حقها. أنا ما أقدر أدخل التطبيق نفسه أشوف أفكارك — لو تبي مساعدة بسكربت، قولي الموضوع هنا بالشات وأكتبه لك، وبعدها تلصقه بنفسك بخانة السكربت.',
+    ideaEmpty:'ما فيه أفكار مضافة', ideaNoScript:'ما فيه سكربت بعد — دوس ✏️ تضيف', scheduledTitle:'📆 مجدولة للنشر',
+    tagTech:'🎬 تك', tagChef:'🍳 طبخ',
+    settings:'الإعدادات', settingsLanguage:'اللغة', settingsTheme:'المظهر', settingsShift:'دوامي',
+    langAr:'العربية', langEn:'English', themeMinimal:'مبسّط', themeStarry:'نجوم',
+    shiftHint:'اختر الدوام اللي يطابق جدولك الحقيقي — التلميح يوريك وش يطلع اليوم.',
+    shiftTodayIs:'اليوم', shiftLabel:'دوام', close:'إغلاق'
+  }
+};
+function t(key){ return (T[lang] && T[lang][key]) != null ? T[lang][key] : (T.en[key] != null ? T.en[key] : key); }
+function WEEKDAYS(){ return WEEKDAYS_I18N[lang]; }
+function MONTHS(){ return MONTHS_I18N[lang]; }
+
+// ============================================================
+//  Shift engine
+// ============================================================
+const ANCHOR = new Date(2026, 6, 5); // 2026-07-05, phase 0 => Day
 const CYCLE = ['day','afternoon','night','off','off'];
 const SHIFT_INFO = {
-  day:       { label:'صباحي', short:'صباحي', start:7,  end:15, hex:'#38BDF8', text:'#06202f', icon:'☀️' },
-  afternoon: { label:'عصر',   short:'عصر',   start:15, end:23, hex:'#F5B942', text:'#2b1c00', icon:'🌇' },
-  night:     { label:'ليل',   short:'ليل',   start:23, end:31, hex:'#8B93B8', text:'#0d1120', icon:'🌙' },
-  off:       { label:'إجازة', short:'',      start:null, end:null, hex:'#1A2136', text:'#5b6784', icon:'🛌' }
+  day:       { start:7,  end:15, hex:'#38BDF8', text:'#06202f', icon:'☀️' },
+  afternoon: { start:15, end:23, hex:'#F5B942', text:'#2b1c00', icon:'🌇' },
+  night:     { start:23, end:31, hex:'#8B93B8', text:'#0d1120', icon:'🌙' },
+  off:       { start:null, end:null, hex:'#1A2136', text:'#5b6784', icon:'🛌' }
 };
-const WEEKDAYS = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
-const MONTHS_AR = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+function shiftLabel(key){ return SHIFT_LABELS[lang][key]; }
+function shiftShort(key){ return key === 'off' ? '' : SHIFT_LABELS[lang][key]; }
 
 function dateOnly(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
 function shiftKeyForDate(d){
   const diff = Math.round((dateOnly(d) - ANCHOR) / 86400000);
-  return CYCLE[((diff % 5) + 5) % 5];
+  return CYCLE[((diff + shiftPhase) % 5 + 5) % 5];
 }
 function shiftEventForDate(d){
   const key = shiftKeyForDate(d);
@@ -60,7 +159,6 @@ function fmtHMS(ms){
   return `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
 }
 function todayStr(){ return dateOnly(new Date()).toISOString().slice(0,10); }
-function yesterdayStr(){ const d=new Date(); d.setDate(d.getDate()-1); return dateOnly(d).toISOString().slice(0,10); }
 
 const RING_LEN = 157;
 
@@ -76,39 +174,41 @@ function updateHero(){
 
   if(current){
     const info = SHIFT_INFO[current.key];
-    eyebrow.textContent = 'أنت بالدوام الحين';
-    title.textContent = info.label;
+    eyebrow.textContent = t('heroOnNow');
+    title.textContent = shiftLabel(current.key);
     countdown.textContent = fmtHMS(current.end - now);
-    sub.textContent = `ينتهي ${fmtTime(current.end)}`;
+    sub.textContent = `${t('heroEnds')} ${fmtTime(current.end)}`;
     icon.textContent = info.icon;
     const frac = Math.min(1, Math.max(0,(now - current.start)/(current.end-current.start)));
     ring.setAttribute('stroke-dashoffset', RING_LEN * (1-frac));
     ring.style.stroke = info.hex;
   } else if(next){
     const info = SHIFT_INFO[next.key];
-    eyebrow.textContent = 'الشفت الجاي';
-    title.textContent = `${info.label} — ${WEEKDAYS[next.date.getDay()]}`;
+    eyebrow.textContent = t('heroNext');
+    title.textContent = `${shiftLabel(next.key)} — ${WEEKDAYS()[next.date.getDay()]}`;
     countdown.textContent = fmtHMS(next.start - now);
-    sub.textContent = `يبدأ ${fmtTime(next.start)}`;
+    sub.textContent = `${t('heroStarts')} ${fmtTime(next.start)}`;
     icon.textContent = info.icon;
     ring.style.stroke = info.hex;
     ring.setAttribute('stroke-dashoffset', RING_LEN * 0.75);
   } else {
-    eyebrow.textContent = 'ما فيه شفت قريب';
+    eyebrow.textContent = t('heroNone');
     title.textContent = '—'; countdown.textContent = '--:--:--'; sub.textContent = '';
   }
 }
 
-// ---------- Month grid ----------
+// ============================================================
+//  Month grid
+// ============================================================
 let viewDate = dateOnly(new Date());
 viewDate.setDate(1);
 
 function renderMonthGrid(){
   const label = document.getElementById('monthLabel');
-  label.textContent = `${MONTHS_AR[viewDate.getMonth()]} ${viewDate.getFullYear()}`;
+  label.textContent = `${MONTHS()[viewDate.getMonth()]} ${viewDate.getFullYear()}`;
 
   const grid = document.getElementById('calGrid');
-  let html = WEEKDAYS.map(w => `<div class="wd">${w}</div>`).join('');
+  let html = WEEKDAYS().map(w => `<div class="wd">${w}</div>`).join('');
 
   const firstDay = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
   const startPad = firstDay.getDay(); // 0=Sun
@@ -121,10 +221,11 @@ function renderMonthGrid(){
     const d = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
     const ev = shiftEventForDate(d);
     const info = SHIFT_INFO[ev.key];
+    const short = shiftShort(ev.key);
     const isToday = d.getTime() === todayKey;
     html += `<div class="cal-cell ${isToday?'today':''}" style="background:${info.hex};color:${info.text}">
       <div class="num">${day}</div>
-      ${info.short ? `<div class="lbl">${info.short}</div>` : ''}
+      ${short ? `<div class="lbl">${short}</div>` : ''}
     </div>`;
   }
   grid.innerHTML = html;
@@ -144,8 +245,11 @@ document.getElementById('todayMenu').addEventListener('click', e => {
   renderQuickView(Number(range));
 });
 
+let quickViewDays = 0; // remember open quick-view so it re-renders on lang change
 function renderQuickView(days){
+  quickViewDays = days;
   const el = document.getElementById('quickView');
+  if(!days){ el.innerHTML = ''; return; }
   const base = dateOnly(new Date());
   let rows = '';
   for(let i=0; i<days; i++){
@@ -153,22 +257,24 @@ function renderQuickView(days){
     const ev = shiftEventForDate(d);
     const info = SHIFT_INFO[ev.key];
     const isToday = i===0;
-    const timeText = ev.key==='off' ? 'راحة' : `${fmtHour12(info.start)} - ${fmtHour12(info.end % 24)}`;
+    const timeText = ev.key==='off' ? t('qvOff') : `${fmtHour12(info.start)} - ${fmtHour12(info.end % 24)}`;
     rows += `<div class="day-row ${isToday?'today':''}">
-      <div class="day-date"><div class="wd2">${WEEKDAYS[d.getDay()]}</div><div class="dn mono">${d.getDate()}</div></div>
-      <div class="badge" style="background:${info.hex};color:${info.text}">${info.label}</div>
+      <div class="day-date"><div class="wd2">${WEEKDAYS()[d.getDay()]}</div><div class="dn mono">${d.getDate()}</div></div>
+      <div class="badge" style="background:${info.hex};color:${info.text}">${shiftLabel(ev.key)}</div>
       <div class="day-time">${timeText}</div>
     </div>`;
   }
-  const labelMap = { 1:'اليوم', 3:'٣ أيام الجاية', 7:'الأسبوع الجاي' };
+  const labelMap = { 1:t('qvToday'), 3:t('qv3'), 7:t('qvWeek') };
   el.innerHTML = `<div class="qv-card">
     <div class="qv-head"><span>${labelMap[days] || ''}</span><button class="qv-close" id="qvClose">✕</button></div>
     ${rows}
   </div>`;
-  document.getElementById('qvClose').addEventListener('click', () => { el.innerHTML = ''; });
+  document.getElementById('qvClose').addEventListener('click', () => { renderQuickView(0); });
 }
 
-// ---------- ICS export (download-based, avoids raw text showing in-browser) ----------
+// ============================================================
+//  ICS export
+// ============================================================
 function toICSDate(dt){
   const p = n => String(n).padStart(2,'0');
   return `${dt.getFullYear()}${p(dt.getMonth()+1)}${p(dt.getDate())}T${p(dt.getHours())}${p(dt.getMinutes())}00`;
@@ -186,17 +292,19 @@ function addToPhoneCalendar(title, start, end){
   setTimeout(()=>URL.revokeObjectURL(url), 15000);
 }
 
-// ---------- Appointments ----------
+// ============================================================
+//  Appointments
+// ============================================================
 function loadAppt(){ try{ return JSON.parse(localStorage.getItem('aziz_appointments')||'[]'); }catch(e){ return []; } }
 function saveAppt(a){ localStorage.setItem('aziz_appointments', JSON.stringify(a)); }
 
 function renderAppt(){
   const items = loadAppt().sort((a,b)=> new Date(a.date+'T'+a.time) - new Date(b.date+'T'+b.time));
   const el = document.getElementById('apptList');
-  if(!items.length){ el.innerHTML = '<div class="empty">ما فيه مواعيد مضافة</div>'; return; }
+  if(!items.length){ el.innerHTML = `<div class="empty">${t('apptEmpty')}</div>`; return; }
   el.innerHTML = items.map(a => {
     const d = new Date(a.date+'T'+a.time);
-    const dateLabel = `${WEEKDAYS[d.getDay()]} ${d.getDate()}/${d.getMonth()+1}`;
+    const dateLabel = `${WEEKDAYS()[d.getDay()]} ${d.getDate()}/${d.getMonth()+1}`;
     return `<div class="item-row" data-id="${a.id}">
       <div style="flex:1; min-width:0;">
         <div class="item-text">${escapeHtml(a.title)}</div>
@@ -217,8 +325,8 @@ document.getElementById('apptAdd').addEventListener('click', () => {
   const title = document.getElementById('apptTitle').value.trim();
   const date = document.getElementById('apptDate').value;
   const time = document.getElementById('apptTime').value || '09:00';
-  if(!title){ setApptMsg('اكتب اسم الموعد', true); return; }
-  if(!date){ setApptMsg('اختر التاريخ', true); return; }
+  if(!title){ setApptMsg(t('apptWriteName'), true); return; }
+  if(!date){ setApptMsg(t('apptChooseDate'), true); return; }
   const items = loadAppt();
   items.push({ id: Date.now().toString(), title, date, time });
   saveAppt(items);
@@ -228,7 +336,7 @@ document.getElementById('apptAdd').addEventListener('click', () => {
   document.getElementById('apptTitle').value = '';
   document.getElementById('apptTime').value = '';
   document.getElementById('apptDate').value = todayStr();
-  setApptMsg('تمت الإضافة ✓ — افتح ملف التقويم اللي نزل عشان تأكد الإضافة');
+  setApptMsg(t('apptAdded'));
   renderAppt();
   renderUpcomingWidget();
 });
@@ -255,19 +363,21 @@ function renderUpcomingWidget(){
     .sort((a,b) => new Date(a.date+'T'+a.time) - new Date(b.date+'T'+b.time));
   if(!items.length){ el.innerHTML = ''; return; }
   el.innerHTML = `<div class="upcoming-card">
-    <div class="uc-title">🗓️ مواعيد قريبة</div>
+    <div class="uc-title">${t('upcomingTitle')}</div>
     ${items.map(a => {
       const d = new Date(a.date+'T'+a.time);
       const isToday = a.date === today;
       return `<div class="upcoming-row">
-        <div class="when">${isToday?'اليوم':'باجر'} ${fmtTime(d)}</div>
+        <div class="when">${isToday?t('today'):t('tomorrow')} ${fmtTime(d)}</div>
         <div class="title">${escapeHtml(a.title)}</div>
       </div>`;
     }).join('')}
   </div>`;
 }
 
-// ---------- Tasks ----------
+// ============================================================
+//  Tasks
+// ============================================================
 function loadTasks(){ try{ return JSON.parse(localStorage.getItem('aziz_tasks')||'[]'); }catch(e){ return []; } }
 function saveTasks(t){ localStorage.setItem('aziz_tasks', JSON.stringify(t)); }
 const LEVEL_ORDER = { high:0, med:1, low:2 };
@@ -284,13 +394,13 @@ function taskRowHtml(t){
 function renderTasks(){
   const all = loadTasks();
   const el = document.getElementById('taskList');
-  if(!all.length){ el.innerHTML = '<div class="empty">ما فيه مهام حالياً</div>'; return; }
-  const pending = all.filter(t => !t.done).sort((a,b) => LEVEL_ORDER[a.level]-LEVEL_ORDER[b.level]);
-  const done = all.filter(t => t.done).sort((a,b) => LEVEL_ORDER[a.level]-LEVEL_ORDER[b.level]);
-  let html = `<div class="task-group-label">⏳ باقي (${pending.length})</div>`;
-  html += pending.length ? pending.map(taskRowHtml).join('') : `<div class="empty">خلصت المهام 🎉</div>`;
+  if(!all.length){ el.innerHTML = `<div class="empty">${t('taskEmpty')}</div>`; return; }
+  const pending = all.filter(x => !x.done).sort((a,b) => LEVEL_ORDER[a.level]-LEVEL_ORDER[b.level]);
+  const done = all.filter(x => x.done).sort((a,b) => LEVEL_ORDER[a.level]-LEVEL_ORDER[b.level]);
+  let html = `<div class="task-group-label">⏳ ${t('pending')} (${pending.length})</div>`;
+  html += pending.length ? pending.map(taskRowHtml).join('') : `<div class="empty">${t('taskAllDone')}</div>`;
   if(done.length){
-    html += `<div class="task-group-label">✅ خلصت (${done.length})</div>`;
+    html += `<div class="task-group-label">✅ ${t('done')} (${done.length})</div>`;
     html += done.map(taskRowHtml).join('');
   }
   el.innerHTML = html;
@@ -308,13 +418,13 @@ document.getElementById('taskList').addEventListener('click', e => {
   const row = e.target.closest('.item-row'); if(!row) return;
   const id = row.dataset.id;
   let tasks = loadTasks();
-  const idx = tasks.findIndex(t => t.id === id);
+  const idx = tasks.findIndex(x => x.id === id);
   const action = e.target.dataset.action;
   if(action === 'toggle'){
     const prevDone = tasks[idx].done;
     tasks[idx].done = !prevDone;
     saveTasks(tasks); renderTasks();
-    showUndoToast(tasks[idx].done ? 'انتقلت لـ"خلصت"' : 'رجعت لـ"باقي"', () => {
+    showUndoToast(tasks[idx].done ? t('taskMovedDone') : t('taskMovedPending'), () => {
       const t2 = loadTasks(); const i2 = t2.findIndex(x => x.id === id);
       if(i2 > -1){ t2[i2].done = prevDone; saveTasks(t2); renderTasks(); }
     });
@@ -322,7 +432,7 @@ document.getElementById('taskList').addEventListener('click', e => {
     const removed = tasks[idx]; const removedIndex = idx;
     tasks.splice(idx, 1);
     saveTasks(tasks); renderTasks();
-    showUndoToast('تم حذف المهمة', () => {
+    showUndoToast(t('taskDeleted'), () => {
       const t2 = loadTasks(); t2.splice(removedIndex, 0, removed); saveTasks(t2); renderTasks();
     });
   } else if(action === 'cycle'){
@@ -331,19 +441,23 @@ document.getElementById('taskList').addEventListener('click', e => {
   }
 });
 
-// ---------- Undo toast ----------
+// ============================================================
+//  Undo toast
+// ============================================================
 let undoTimer = null;
 function showUndoToast(text, undoFn){
   const el = document.getElementById('undoToast');
   clearTimeout(undoTimer);
-  el.innerHTML = `<span>${text}</span><button id="undoBtn">تراجع</button>`;
+  el.innerHTML = `<span>${text}</span><button id="undoBtn">${t('undo')}</button>`;
   el.classList.add('show');
   document.getElementById('undoBtn').onclick = () => { undoFn(); hideUndoToast(); };
   undoTimer = setTimeout(hideUndoToast, 4000);
 }
 function hideUndoToast(){ document.getElementById('undoToast').classList.remove('show'); }
 
-// ---------- Habits ----------
+// ============================================================
+//  Habits
+// ============================================================
 function dstr(d){ return dateOnly(d).toISOString().slice(0,10); }
 
 function loadHabits(){
@@ -393,7 +507,7 @@ function renderHabits(){
   const items = loadHabits();
   const el = document.getElementById('habitList');
   const today = todayStr();
-  if(!items.length){ el.innerHTML = '<div class="empty">ما فيه عادات مضافة</div>'; return; }
+  if(!items.length){ el.innerHTML = `<div class="empty">${t('habitEmpty')}</div>`; return; }
   el.innerHTML = items.map(h => {
     const done = h.history.includes(today);
     const streak = computeStreak(h.history);
@@ -432,7 +546,9 @@ document.getElementById('habitList').addEventListener('click', e => {
   saveHabits(items); renderHabits();
 });
 
-// ---------- Food log ----------
+// ============================================================
+//  Food log
+// ============================================================
 function loadFood(){ try{ return JSON.parse(localStorage.getItem('aziz_food')||'[]'); }catch(e){ return []; } }
 function saveFood(f){ localStorage.setItem('aziz_food', JSON.stringify(f)); }
 
@@ -444,13 +560,13 @@ function renderFood(){
   const todayTotal = items.filter(f => new Date(f.ts).toDateString()===todayD)
     .reduce((s,f)=> s + (Number(f.cal)||0), 0);
   totalEl.textContent = todayTotal;
-  if(!items.length){ el.innerHTML = '<div class="empty">ما فيه تسجيلات أكل بعد</div>'; return; }
+  if(!items.length){ el.innerHTML = `<div class="empty">${t('foodEmpty')}</div>`; return; }
   el.innerHTML = items.map(f => {
     const d = new Date(f.ts);
     return `<div class="item-row" data-id="${f.id}">
       <div style="flex:1; min-width:0;">
         <div class="item-text">${escapeHtml(f.text)}</div>
-        <div class="item-meta mono">${fmtTime(d)}${f.cal ? ' — ' + f.cal + ' سعرة' : ''}</div>
+        <div class="item-meta mono">${fmtTime(d)}${f.cal ? ' — ' + f.cal + ' ' + t('calUnit') : ''}</div>
       </div>
       <button class="icon-btn" data-action="del">✕</button>
     </div>`;
@@ -473,7 +589,9 @@ document.getElementById('foodList').addEventListener('click', e => {
   saveFood(items); renderFood();
 });
 
-// ---------- Content ideas ----------
+// ============================================================
+//  Content ideas
+// ============================================================
 function loadIdeas(){ try{ return JSON.parse(localStorage.getItem('aziz_ideas')||'[]'); }catch(e){ return []; } }
 function saveIdeas(items){ localStorage.setItem('aziz_ideas', JSON.stringify(items)); }
 let ideaFilter = 'all';
@@ -481,18 +599,18 @@ let selectedAcct = 'tech';
 
 function fmtShortDate(dateStr){
   const d = new Date(dateStr + 'T00:00:00');
-  return `${d.getDate()} ${MONTHS_AR[d.getMonth()]}`;
+  return `${d.getDate()} ${MONTHS()[d.getMonth()]}`;
 }
 
 function renderIdeas(){
   const all = loadIdeas().slice().sort((a,b)=> b.ts - a.ts);
   const items = ideaFilter === 'all' ? all : all.filter(i => i.acct === ideaFilter);
   const el = document.getElementById('ideaList');
-  if(!items.length){ el.innerHTML = '<div class="empty">ما فيه أفكار مضافة</div>'; return; }
+  if(!items.length){ el.innerHTML = `<div class="empty">${t('ideaEmpty')}</div>`; renderScheduled(); return; }
   el.innerHTML = items.map(i => `
     <div class="idea-card" data-id="${i.id}">
       <div class="idea-head">
-        <span class="idea-tag ${i.acct}">${i.acct==='tech' ? '🎬 تك' : '🍳 طبخ'}</span>
+        <span class="idea-tag ${i.acct}">${i.acct==='tech' ? t('tagTech') : t('tagChef')}</span>
         <div class="item-text" style="flex:1;">${escapeHtml(i.title)}</div>
         ${i.pubDate ? `<span class="idea-date-badge" data-action="date">📆 ${fmtShortDate(i.pubDate)}</span>` : `<button class="icon-btn" data-action="date">📆</button>`}
         <button class="icon-btn" data-action="edit">✏️</button>
@@ -500,7 +618,7 @@ function renderIdeas(){
       </div>
       ${i.script
         ? `<div class="idea-script" data-action="edit">${escapeHtml(i.script)}</div>`
-        : `<div class="idea-script empty-script" data-action="edit">ما فيه سكربت بعد — دوس ✏️ تضيف</div>`}
+        : `<div class="idea-script empty-script" data-action="edit">${t('ideaNoScript')}</div>`}
       <textarea class="idea-script-edit" data-id="${i.id}">${escapeHtml(i.script||'')}</textarea>
       <input type="date" class="idea-date-edit" data-id="${i.id}" value="${i.pubDate||''}">
     </div>`).join('');
@@ -516,7 +634,7 @@ function renderScheduled(){
     .slice(0, 10);
   if(!items.length){ el.innerHTML = ''; return; }
   el.innerHTML = `<div class="sched-card">
-    <div class="sc-title">📆 مجدولة للنشر</div>
+    <div class="sc-title">${t('scheduledTitle')}</div>
     ${items.map(i => `<div class="sched-row">
         <div class="when">${fmtShortDate(i.pubDate)}</div>
         <div class="title">${i.acct==='tech'?'🎬':'🍳'} ${escapeHtml(i.title)}</div>
@@ -594,7 +712,9 @@ document.getElementById('ideaList').addEventListener('focusout', e => {
   renderIdeas();
 });
 
-// ---------- Tabs ----------
+// ============================================================
+//  Tabs
+// ============================================================
 document.querySelectorAll('nav.bottom button').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('nav.bottom button').forEach(b=>b.classList.remove('active'));
@@ -606,8 +726,84 @@ document.querySelectorAll('nav.bottom button').forEach(btn => {
 
 function escapeHtml(str){ const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
 
-// ---------- Init ----------
+// ============================================================
+//  Settings: language / theme / shift rotation
+// ============================================================
+function applyStaticI18n(){
+  document.title = t('appName');
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.setAttribute('placeholder', t(el.dataset.i18nPh)); });
+}
+function applyLangDir(){
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+}
+function applyTheme(){
+  document.documentElement.setAttribute('data-theme', theme);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.setAttribute('content', theme === 'starry' ? '#050414' : '#000000');
+}
+function rerenderAll(){
+  applyStaticI18n();
+  renderMonthGrid();
+  renderQuickView(quickViewDays);
+  renderAppt(); renderUpcomingWidget();
+  renderTasks(); renderHabits(); renderFood(); renderIdeas();
+  updateHero();
+  renderSettings();
+}
+
+function renderSettings(){
+  // language + theme active states
+  document.querySelectorAll('#settingsSheet [data-set-lang]').forEach(b =>
+    b.classList.toggle('active', b.dataset.setLang === lang));
+  document.querySelectorAll('#settingsSheet [data-set-theme]').forEach(b =>
+    b.classList.toggle('active', b.dataset.setTheme === theme));
+  // shift rotation options (5 phases)
+  const todayDiff = Math.round((dateOnly(new Date()) - ANCHOR) / 86400000);
+  const wrap = document.getElementById('shiftOptions');
+  let html = '';
+  for(let p = 0; p < 5; p++){
+    const key = CYCLE[((todayDiff + p) % 5 + 5) % 5];
+    const info = SHIFT_INFO[key];
+    html += `<button type="button" class="shift-opt ${p===shiftPhase?'active':''}" data-set-phase="${p}">
+      <span class="so-name">${t('shiftLabel')} ${p+1}</span>
+      <span class="so-hint"><span class="so-swatch" style="background:${info.hex}"></span>${t('shiftTodayIs')}: ${shiftLabel(key)}</span>
+    </button>`;
+  }
+  wrap.innerHTML = html;
+}
+
+document.getElementById('settingsBtn').addEventListener('click', () => {
+  renderSettings();
+  document.getElementById('settingsSheet').classList.add('open');
+});
+document.querySelectorAll('#settingsSheet [data-close-settings]').forEach(b =>
+  b.addEventListener('click', () => document.getElementById('settingsSheet').classList.remove('open')));
+
+document.getElementById('settingsSheet').addEventListener('click', e => {
+  const langBtn  = e.target.closest('[data-set-lang]');
+  const themeBtn = e.target.closest('[data-set-theme]');
+  const phaseBtn = e.target.closest('[data-set-phase]');
+  if(langBtn){
+    lang = langBtn.dataset.setLang; saveSetting('aziz_lang', lang);
+    applyLangDir(); rerenderAll();
+  } else if(themeBtn){
+    theme = themeBtn.dataset.setTheme; saveSetting('aziz_theme', theme);
+    applyTheme(); renderSettings();
+  } else if(phaseBtn){
+    shiftPhase = parseInt(phaseBtn.dataset.setPhase, 10); saveSetting('aziz_shift_phase', shiftPhase);
+    renderMonthGrid(); renderQuickView(quickViewDays); updateHero(); renderSettings();
+  }
+});
+
+// ============================================================
+//  Init
+// ============================================================
+applyLangDir();
+applyTheme();
 document.getElementById('apptDate').value = todayStr();
+applyStaticI18n();
 renderMonthGrid(); renderAppt(); renderUpcomingWidget(); renderTasks(); renderHabits(); renderFood(); renderIdeas(); updateHero();
 setInterval(updateHero, 1000);
 
