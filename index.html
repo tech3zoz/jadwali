@@ -107,21 +107,23 @@
 </section>
 
 <section class="panel" id="panel-habits">
+  <div class="week-head">
+    <button class="week-nav" id="weekPrev" aria-label="Previous week">‹</button>
+    <div class="week-range mono" id="weekRange">—</div>
+    <button class="week-nav" id="weekNext" aria-label="Next week">›</button>
+  </div>
   <div class="week-strip" id="weekStrip"></div>
   <div class="add-card">
     <input id="habitInput" data-i18n-ph="habitPh" placeholder="New habit…">
     <div class="picker-label" data-i18n="iconLabel">Icon</div>
     <div class="icon-row">
       <input id="habitIcon" class="icon-input" maxlength="2" value="⭐">
-      <div class="emoji-list" id="emojiSuggest"></div>
+      <div class="emoji-grid" id="emojiSuggest"></div>
     </div>
     <div class="picker-label" data-i18n="colorLabel">Color</div>
     <div class="color-row" id="habitColorRow"></div>
-    <div class="seg small" id="habitFreqSeg" style="margin-top:12px;">
-      <button type="button" class="seg-btn active" data-freq="daily" data-i18n="freq_daily">Daily</button>
-      <button type="button" class="seg-btn" data-freq="weekly" data-i18n="freq_weekly">Weekly</button>
-      <button type="button" class="seg-btn" data-freq="monthly" data-i18n="freq_monthly">Monthly</button>
-    </div>
+    <div class="picker-label" data-i18n="repeatLabel">Repeat on</div>
+    <div class="days-row" id="habitDaysSel"></div>
     <div class="row2">
       <input id="habitGoal" type="number" inputmode="numeric" class="mono" data-i18n-ph="goalPh" placeholder="Goal (optional)">
       <input id="habitUnit" type="text" data-i18n-ph="unitPh" placeholder="Unit (ml, times…)">

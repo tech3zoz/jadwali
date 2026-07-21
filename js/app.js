@@ -44,7 +44,7 @@ const T = {
     habitPh:'New habit… e.g. Drink water', habitEmpty:'No habits added',
     freq_daily:'Daily', freq_weekly:'Weekly', freq_monthly:'Monthly',
     streakUnit_daily:'Day', streakUnit_weekly:'Week', streakUnit_monthly:'Month',
-    iconLabel:'Icon', colorLabel:'Color',
+    iconLabel:'Icon', colorLabel:'Color', repeatLabel:'Repeat on', noHabitsToday:'No habits for this day',
     left:'left', goalPh:'Goal (optional)', unitPh:'Unit (ml, times…)', addAmountPh:'amount', save:'Save',
     habitNote:'Choose a frequency (daily / weekly / monthly). Add an optional goal + unit to make it measurable — e.g. Drink water 2000 ml, or Gym 3 times/week. Tap ⚙️ on any habit to edit it. The dots show your last 7 periods; the 🔥 streak counts consecutive completed periods.',
     foodDivider:'🍽️ Food', foodCaloriesToday:"Today's calories",
@@ -81,7 +81,7 @@ const T = {
     habitPh:'عادة جديدة… مثل: اشرب ماي', habitEmpty:'ما فيه عادات مضافة',
     freq_daily:'يومي', freq_weekly:'أسبوعي', freq_monthly:'شهري',
     streakUnit_daily:'يوم', streakUnit_weekly:'أسبوع', streakUnit_monthly:'شهر',
-    iconLabel:'الأيقونة', colorLabel:'اللون',
+    iconLabel:'الأيقونة', colorLabel:'اللون', repeatLabel:'يتكرر أيام', noHabitsToday:'ما فيه عادات لهذا اليوم',
     left:'باقي', goalPh:'الهدف (اختياري)', unitPh:'الوحدة (مل، مرات…)', addAmountPh:'كمية', save:'حفظ',
     habitNote:'اختر التكرار (يومي / أسبوعي / شهري). تقدر تضيف هدف + وحدة عشان تصير قابلة للقياس — مثل: اشرب ماي ٢٠٠٠ مل، أو نادي ٣ مرات/أسبوع. دوس ⚙️ على أي عادة عشان تعدّلها. النقاط توريك آخر ٧ فترات، والستريك 🔥 يحسب الفترات المكتملة المتتالية.',
     foodDivider:'🍽️ الأكل', foodCaloriesToday:'سعرات اليوم',
@@ -471,38 +471,32 @@ function dstr(d){ return dateOnly(d).toISOString().slice(0,10); }
 
 const HABIT_COLORS = ['#2DD4BF','#4ADE80','#38BDF8','#A78BFA','#FB7185','#F5B942','#F97316','#F472B6'];
 const EMOJI_SUGGEST = ['⭐','💧','🏋️','💊','📷','🧘','🏃','🚶','🛌','📖','🍎','☀️','🌙','🙏','💪','🧠','📿','🥗','🧴','✍️'];
-const WD_MON = { en:['Mo','Tu','We','Th','Fr','Sa','Su'], ar:['إث','ثل','أر','خم','جم','سب','أح'] };
+// Arabic shows full weekday names; English stays short (per request)
+const WD_FULL = { en:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], ar:['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'] };
+const WD_PICK = { en:['S','M','T','W','T','F','S'], ar:['ح','ن','ث','ر','خ','ج','س'] };  // single-letter toggles, Sun..Sat
 const DEFAULT_COLOR = HABIT_COLORS[0];
+const ALL_DAYS = [0,1,2,3,4,5,6];
 
-let habitDay = dateOnly(new Date());   // day selected in the week strip
-let addHabitFreq = 'daily';
+let habitDay = dateOnly(new Date());          // selected day in the rail
+let weekStart = mondayOf(new Date());         // Monday of the viewed week
 let addColor = DEFAULT_COLOR;
 let addIcon  = '⭐';
+let addDays  = ALL_DAYS.slice();
 
-function periodKeyForDate(d, freq){
-  if(freq === 'monthly') return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-  if(freq === 'weekly'){ const s = new Date(d); s.setDate(s.getDate() - s.getDay()); return dstr(s); } // week starts Sunday
-  return dstr(d);
-}
-function shiftPeriod(d, freq, back){
-  const nd = new Date(d);
-  if(freq === 'monthly') nd.setMonth(nd.getMonth() - back);
-  else if(freq === 'weekly') nd.setDate(nd.getDate() - 7*back);
-  else nd.setDate(nd.getDate() - back);
-  return nd;
-}
-function habitFreq(h){ return h.freq || 'daily'; }
+function mondayOf(d){ const m = dateOnly(d); m.setDate(m.getDate() - ((m.getDay()+6)%7)); return m; }
+function habitDays(h){ return (Array.isArray(h.days) && h.days.length) ? h.days : ALL_DAYS; }
+function scheduledOn(h, d){ return habitDays(h).includes(d.getDay()); }
 function habitGoalNum(h){ return (h.goal && h.goal > 0) ? h.goal : 1; }
 function isMeasurable(h){ return !!(h.goal && h.goal > 0); }
 function habitAmount(h, key){ return (h.log && h.log[key]) || 0; }
-function habitDoneOn(h, d){ return habitAmount(h, periodKeyForDate(d, habitFreq(h))) >= habitGoalNum(h); }
+function habitDoneOn(h, d){ return habitAmount(h, dstr(d)) >= habitGoalNum(h); }
 
 function loadHabits(){
   const raw = localStorage.getItem('aziz_habits');
   if(raw === null){
     const seed = [
-      { id:'seed1', text:'Drink water',   freq:'daily', goal:2000, unit:'ml', icon:'💧', color:'#38BDF8', log:{} },
-      { id:'seed2', text:'Take vitamins', freq:'daily', goal:null, unit:null, icon:'💊', color:'#4ADE80', log:{} }
+      { id:'seed1', text:'Drink water',   days:ALL_DAYS.slice(), goal:2000, unit:'ml', icon:'💧', image:null, color:'#38BDF8', order:0, log:{} },
+      { id:'seed2', text:'Take vitamins', days:ALL_DAYS.slice(), goal:null, unit:null, icon:'💊', image:null, color:'#4ADE80', order:1, log:{} }
     ];
     localStorage.setItem('aziz_habits', JSON.stringify(seed));
     return seed;
@@ -510,17 +504,22 @@ function loadHabits(){
   let items;
   try{ items = JSON.parse(raw); }catch(e){ return []; }
   let migrated = false;
-  items = items.map(h => {
+  items = items.map((h, i) => {
     let nh = h;
-    if(!nh.log){                                          // migrate old check habits -> daily, log of 1s
+    if(!nh.log){                                          // migrate oldest check habits (history[] -> log)
       migrated = true;
       const hist = nh.history || (nh.lastDone ? [nh.lastDone] : []);
       const log = {}; hist.forEach(d => { log[d] = 1; });
-      nh = { id:nh.id, text:nh.text, freq:'daily', goal:null, unit:null, log };
+      nh = { id:nh.id, text:nh.text, goal:null, unit:null, log };
     }
-    if(nh.icon === undefined || nh.color === undefined){  // backfill icon/color
+    if(!Array.isArray(nh.days)){                          // freq -> weekday schedule (all days)
       migrated = true;
-      nh = Object.assign({ icon:'⭐', color:DEFAULT_COLOR }, nh);
+      nh = Object.assign({}, nh, { days: ALL_DAYS.slice() });
+      delete nh.freq;
+    }
+    if(nh.icon === undefined || nh.color === undefined || nh.image === undefined || nh.order === undefined){
+      migrated = true;
+      nh = Object.assign({ icon:'⭐', color:DEFAULT_COLOR, image:null, order:i }, nh);
     }
     return nh;
   });
@@ -529,10 +528,16 @@ function loadHabits(){
 }
 function saveHabits(h){ localStorage.setItem('aziz_habits', JSON.stringify(h)); }
 
+// Streak = consecutive SCHEDULED days (up to today) that were completed.
 function computeStreak(h){
-  let count = 0; let cur = new Date(); const freq = habitFreq(h);
-  if(!habitDoneOn(h, cur)) cur = shiftPeriod(cur, freq, 1);   // today may still be in progress
-  while(habitDoneOn(h, cur)){ count++; cur = shiftPeriod(cur, freq, 1); }
+  const today = dateOnly(new Date());
+  let cur = new Date(today);
+  if(scheduledOn(h, cur) && !habitDoneOn(h, cur)) cur.setDate(cur.getDate() - 1); // today may still be in progress
+  let count = 0, guard = 0;
+  while(guard++ < 420){
+    if(scheduledOn(h, cur)){ if(habitDoneOn(h, cur)) count++; else break; }
+    cur.setDate(cur.getDate() - 1);
+  }
   return count;
 }
 function quickChips(h){
@@ -549,39 +554,62 @@ function colorSwatches(sel){
 function emojiButtons(){
   return EMOJI_SUGGEST.map(e => `<button type="button" class="emoji-btn">${e}</button>`).join('');
 }
+function daysPicker(sel){
+  const lbl = WD_PICK[lang] || WD_PICK.en;
+  return ALL_DAYS.map(d => `<button type="button" class="day-toggle ${sel.includes(d)?'on':''}" data-day="${d}">${lbl[d]}</button>`).join('');
+}
+// average completion of scheduled habits on a given date (null if none scheduled)
+function dayCompletion(items, d){
+  const sched = items.filter(h => scheduledOn(h, d));
+  if(!sched.length) return null;
+  return sched.filter(h => habitDoneOn(h, d)).length / sched.length;
+}
 
 function renderWeekStrip(){
-  const el = document.getElementById('weekStrip');
+  const items = loadHabits();
   const today = dateOnly(new Date());
-  const monday = new Date(today); monday.setDate(today.getDate() - ((today.getDay()+6)%7));
-  const wd = WD_MON[lang] || WD_MON.en;
+  const wd = WD_FULL[lang] || WD_FULL.en;
+  const strip = document.getElementById('weekStrip');
+  const CIRC = 62.83; // 2*pi*10
   let html = '';
   for(let i=0; i<7; i++){
-    const d = new Date(monday); d.setDate(monday.getDate()+i);
+    const d = new Date(weekStart); d.setDate(weekStart.getDate()+i);
     const sel = d.getTime() === habitDay.getTime();
     const isToday = d.getTime() === today.getTime();
+    const frac = dayCompletion(items, d);
+    const offset = frac == null ? CIRC : CIRC * (1 - frac);
     html += `<button class="ws-day ${sel?'sel':''} ${isToday?'today':''}" data-date="${dstr(d)}">
-      <span class="ws-wd">${wd[i]}</span>
-      <span class="ws-num mono">${d.getDate()}</span>
+      <span class="ws-wd">${wd[d.getDay()]}</span>
+      <span class="ws-ring">
+        <svg viewBox="0 0 28 28" width="36" height="36">
+          <circle class="ws-track" cx="14" cy="14" r="10"></circle>
+          <circle class="ws-fill" cx="14" cy="14" r="10" stroke-dasharray="${CIRC}" stroke-dashoffset="${offset}"></circle>
+        </svg>
+        <span class="ws-num mono">${d.getDate()}</span>
+      </span>
     </button>`;
   }
-  el.innerHTML = html;
+  strip.innerHTML = html;
+  const end = new Date(weekStart); end.setDate(weekStart.getDate()+6);
+  const p = n => String(n).padStart(2,'0');
+  document.getElementById('weekRange').textContent =
+    `${p(weekStart.getDate())}/${p(weekStart.getMonth()+1)} ~ ${p(end.getDate())}/${p(end.getMonth()+1)}`;
 }
 
 function renderHabits(){
-  const items = loadHabits();
+  const all = loadHabits().slice().sort((a,b) => (a.order||0)-(b.order||0));
+  const items = all.filter(h => scheduledOn(h, habitDay));
   const el = document.getElementById('habitList');
-  if(!items.length){ el.innerHTML = `<div class="empty">${t('habitEmpty')}</div>`; return; }
+  if(!items.length){ el.innerHTML = `<div class="empty">${t('noHabitsToday')}</div>`; return; }
+  const key = dstr(habitDay);
   el.innerHTML = items.map(h => {
-    const freq = habitFreq(h);
-    const key = periodKeyForDate(habitDay, freq);
     const amt = habitAmount(h, key);
     const goal = habitGoalNum(h);
     const done = amt >= goal;
     const measurable = isMeasurable(h);
     const streak = computeStreak(h);
-    const badgeFreq = freq !== 'daily' ? ` · ${t('freq_'+freq)}` : '';
-    const countText = `${amt}/${h.goal || 1}${h.unit ? ' ' + escapeHtml(h.unit) : ''}${badgeFreq}`;
+    const countText = `${amt}/${h.goal || 1}${h.unit ? ' ' + escapeHtml(h.unit) : ''}`;
+    const iconHtml = h.image ? `<img src="${h.image}" alt="">` : (h.icon || '⭐');
     const chips = measurable
       ? `<div class="habit-log">
            ${quickChips(h).map(a => `<button class="qadd" data-action="add" data-amt="${a}">+${a}</button>`).join('')}
@@ -589,18 +617,17 @@ function renderHabits(){
            <button class="qadd" data-action="addcustom">+</button>
          </div>`
       : '';
-    const editSeg = ['daily','weekly','monthly'].map(f =>
-      `<button type="button" class="seg-btn ${freq===f?'active':''}" data-action="setfreq" data-freq="${f}">${t('freq_'+f)}</button>`).join('');
     const panel = `<div class="hcard-panel">
         ${chips}
         <div class="picker-label">${t('iconLabel')}</div>
         <div class="icon-row">
           <input class="edit-icon icon-input" maxlength="2" value="${escapeHtml(h.icon||'⭐')}">
-          <div class="emoji-list">${emojiButtons()}</div>
+          <div class="emoji-grid">${emojiButtons()}</div>
         </div>
         <div class="picker-label">${t('colorLabel')}</div>
         <div class="color-row edit-colors">${colorSwatches(h.color||DEFAULT_COLOR)}</div>
-        <div class="seg small" style="margin-top:12px;">${editSeg}</div>
+        <div class="picker-label">${t('repeatLabel')}</div>
+        <div class="days-row edit-days">${daysPicker(habitDays(h))}</div>
         <div class="row2">
           <input class="edit-goal efield mono" type="number" inputmode="numeric" value="${h.goal||''}" placeholder="${t('goalPh')}">
           <input class="edit-unit efield" type="text" value="${escapeHtml(h.unit||'')}" placeholder="${t('unitPh')}">
@@ -613,12 +640,12 @@ function renderHabits(){
     return `<div class="hcard ${done?'done':''}" data-id="${h.id}" style="--c:${h.color||DEFAULT_COLOR}">
         <div class="hcard-main">
           <div class="hcard-tap" data-action="expand">
-            <div class="hcard-icon">${h.icon||'⭐'}</div>
+            <div class="hcard-icon ${h.image?'has-img':''}">${iconHtml}</div>
             <div class="hcard-body">
               <div class="hcard-name">${escapeHtml(h.text)}</div>
               <div class="hcard-count mono">${countText}</div>
             </div>
-            ${streak > 0 ? `<div class="hcard-streak">🔥 ${streak} ${t('streakUnit_'+freq)}</div>` : ''}
+            ${streak > 0 ? `<div class="hcard-streak">🔥 ${streak}</div>` : ''}
           </div>
           <button class="hcard-check ${done?'done':''}" data-action="toggle">✓</button>
         </div>
@@ -627,17 +654,20 @@ function renderHabits(){
   }).join('');
 }
 
-// ---- Week strip: pick the day ----
+// ---- Week rail: pick day + navigate weeks ----
 document.getElementById('weekStrip').addEventListener('click', e => {
   const b = e.target.closest('[data-date]'); if(!b) return;
   habitDay = dateOnly(new Date(b.dataset.date + 'T00:00:00'));
   renderWeekStrip(); renderHabits();
 });
+document.getElementById('weekPrev').addEventListener('click', () => { weekStart.setDate(weekStart.getDate()-7); renderWeekStrip(); });
+document.getElementById('weekNext').addEventListener('click', () => { weekStart.setDate(weekStart.getDate()+7); renderWeekStrip(); });
 
 // ---- Add-form pickers ----
 function setupHabitAddPickers(){
   document.getElementById('emojiSuggest').innerHTML = emojiButtons();
   document.getElementById('habitColorRow').innerHTML = colorSwatches(addColor);
+  document.getElementById('habitDaysSel').innerHTML = daysPicker(addDays);
   document.getElementById('habitIcon').value = addIcon;
 }
 document.getElementById('emojiSuggest').addEventListener('click', e => {
@@ -650,24 +680,27 @@ document.getElementById('habitColorRow').addEventListener('click', e => {
   addColor = b.dataset.color;
   document.querySelectorAll('#habitColorRow .swatch').forEach(x => x.classList.toggle('active', x === b));
 });
-document.getElementById('habitFreqSeg').addEventListener('click', e => {
-  const b = e.target.closest('[data-freq]'); if(!b) return;
-  addHabitFreq = b.dataset.freq;
-  document.querySelectorAll('#habitFreqSeg .seg-btn').forEach(x => x.classList.toggle('active', x === b));
+document.getElementById('habitDaysSel').addEventListener('click', e => {
+  const b = e.target.closest('[data-day]'); if(!b) return;
+  const d = Number(b.dataset.day);
+  if(addDays.includes(d)) addDays = addDays.filter(x => x !== d); else addDays.push(d);
+  b.classList.toggle('on');
 });
 document.getElementById('habitAdd').addEventListener('click', () => {
   const input = document.getElementById('habitInput');
   const text = input.value.trim(); if(!text) return;
   const goalVal = document.getElementById('habitGoal').value;
   const unitVal = document.getElementById('habitUnit').value.trim();
-  const items = loadHabits();
-  items.push({ id: Date.now().toString(), text, freq: addHabitFreq,
+  const days = addDays.length ? addDays.slice().sort((a,b)=>a-b) : ALL_DAYS.slice();
+  const all = loadHabits();
+  const maxOrder = all.reduce((m,h) => Math.max(m, h.order||0), -1);
+  all.push({ id: Date.now().toString(), text, days,
     goal: goalVal ? Number(goalVal) : null, unit: unitVal || null,
-    icon: (document.getElementById('habitIcon').value.trim() || '⭐'), color: addColor, log:{} });
-  saveHabits(items);
+    icon: (document.getElementById('habitIcon').value.trim() || '⭐'), image:null, color: addColor, order:maxOrder+1, log:{} });
+  saveHabits(all);
   input.value = ''; document.getElementById('habitGoal').value = ''; document.getElementById('habitUnit').value = '';
   addIcon = '⭐'; document.getElementById('habitIcon').value = addIcon;
-  renderHabits();
+  renderWeekStrip(); renderHabits();
 });
 
 // ---- Card interactions ----
@@ -679,44 +712,43 @@ document.getElementById('habitList').addEventListener('click', e => {
   if(idx === -1) return;
   const h = items[idx];
 
-  // emoji / color pickers inside this card's panel (handled before data-action)
+  // in-panel pickers handled before data-action:
   const emojiBtn = e.target.closest('.hcard-panel .emoji-btn');
   if(emojiBtn){ card.querySelector('.edit-icon').value = emojiBtn.textContent; return; }
   const swatch = e.target.closest('.hcard-panel .swatch');
   if(swatch){ card.querySelectorAll('.edit-colors .swatch').forEach(s => s.classList.remove('active')); swatch.classList.add('active'); return; }
+  const dayTog = e.target.closest('.hcard-panel .day-toggle');
+  if(dayTog){ dayTog.classList.toggle('on'); return; }
 
-  const action = e.target.dataset.action || (e.target.closest('[data-action]') || {}).dataset?.action;
-  const key = periodKeyForDate(habitDay, habitFreq(h));
+  const action = e.target.dataset.action || ((e.target.closest('[data-action]') || {}).dataset || {}).action;
+  const key = dstr(habitDay);
   h.log = h.log || {};
-  if(action === 'del'){ items.splice(idx,1); saveHabits(items); renderHabits(); }
+  if(action === 'del'){ items.splice(idx,1); saveHabits(items); renderWeekStrip(); renderHabits(); }
   else if(action === 'toggle'){
     const goal = habitGoalNum(h);
     if(habitAmount(h, key) >= goal) delete h.log[key]; else h.log[key] = goal;
-    saveHabits(items); renderHabits();
+    saveHabits(items); renderWeekStrip(); renderHabits();
   } else if(action === 'expand'){
     card.querySelector('.hcard-panel').classList.toggle('open');
   } else if(action === 'add'){
     h.log[key] = (h.log[key] || 0) + (Number(e.target.dataset.amt) || 0);
-    saveHabits(items); renderHabits();
+    saveHabits(items); renderWeekStrip(); renderHabits();
   } else if(action === 'addcustom'){
     const amt = Number(card.querySelector('.qadd-input').value) || 0;
     if(!amt) return;
     h.log[key] = Math.max(0, (h.log[key] || 0) + amt);
-    saveHabits(items); renderHabits();
-  } else if(action === 'setfreq'){
-    card.querySelectorAll('.hcard-panel [data-action="setfreq"]').forEach(b => b.classList.remove('active'));
-    e.target.classList.add('active');
+    saveHabits(items); renderWeekStrip(); renderHabits();
   } else if(action === 'saveedit'){
     const p = card.querySelector('.hcard-panel');
-    const fb = p.querySelector('[data-action="setfreq"].active');
     const sw = p.querySelector('.edit-colors .swatch.active');
-    h.freq = fb ? fb.dataset.freq : habitFreq(h);
+    const days = Array.from(p.querySelectorAll('.edit-days .day-toggle.on')).map(b => Number(b.dataset.day));
+    h.days = days.length ? days.sort((a,b)=>a-b) : ALL_DAYS.slice();
     h.icon = p.querySelector('.edit-icon').value.trim() || '⭐';
     h.color = sw ? sw.dataset.color : (h.color || DEFAULT_COLOR);
     const gv = p.querySelector('.edit-goal').value;
     const uv = p.querySelector('.edit-unit').value.trim();
     h.goal = gv ? Number(gv) : null; h.unit = uv || null;
-    saveHabits(items); renderHabits();
+    saveHabits(items); renderWeekStrip(); renderHabits();
   }
 });
 
