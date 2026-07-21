@@ -1,0 +1,12 @@
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+
+# Editor folders
+.vscode/
+.idea/
+
+# Node (not used, but ignore if ever added)
+node_modules/
