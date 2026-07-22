@@ -33,13 +33,21 @@
 <body>
 
 <header class="top">
-  <div>
+  <div class="head-title">
     <h1 data-i18n="appName">Jadwali</h1>
     <div class="sub" data-i18n="tagline">Shift organizer</div>
   </div>
-  <button class="settings-btn" id="settingsBtn" aria-label="Settings">
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-  </button>
+  <div class="head-actions">
+    <button class="head-pill" id="newHabitBtn">
+      <span class="plus">+</span><span data-i18n="newHabit">New Habit</span>
+    </button>
+    <button class="head-icon" id="summaryBtn" aria-label="Weekly summary">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/></svg>
+    </button>
+    <button class="settings-btn" id="settingsBtn" aria-label="Settings">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
 </header>
 
 <div class="hero">
@@ -113,23 +121,6 @@
     <button class="week-nav" id="weekNext" aria-label="Next week">›</button>
   </div>
   <div class="week-strip" id="weekStrip"></div>
-  <div class="add-card">
-    <input id="habitInput" data-i18n-ph="habitPh" placeholder="New habit…">
-    <div class="picker-label" data-i18n="iconLabel">Icon</div>
-    <div class="icon-row">
-      <input id="habitIcon" class="icon-input" maxlength="2" value="⭐">
-      <div class="emoji-grid" id="emojiSuggest"></div>
-    </div>
-    <div class="picker-label" data-i18n="colorLabel">Color</div>
-    <div class="color-row" id="habitColorRow"></div>
-    <div class="picker-label" data-i18n="repeatLabel">Repeat on</div>
-    <div class="days-row" id="habitDaysSel"></div>
-    <div class="row2">
-      <input id="habitGoal" type="number" inputmode="numeric" class="mono" data-i18n-ph="goalPh" placeholder="Goal (optional)">
-      <input id="habitUnit" type="text" data-i18n-ph="unitPh" placeholder="Unit (ml, times…)">
-    </div>
-    <button class="primary" id="habitAdd" data-i18n="add">Add</button>
-  </div>
   <div id="habitList"></div>
   <div class="note" data-i18n="habitNote"></div>
 
@@ -207,6 +198,48 @@
       <div class="settings-hint" data-i18n="shiftHint"></div>
       <div class="shift-options" id="shiftOptions"></div>
     </div>
+  </div>
+</div>
+
+<!-- ================= NEW HABIT SHEET ================= -->
+<div class="settings-sheet" id="habitSheet">
+  <div class="settings-head">
+    <h2 data-i18n="newHabit">New Habit</h2>
+    <button class="sheet-close" data-close-sheet aria-label="Close">✕</button>
+  </div>
+  <div class="settings-body">
+    <input id="habitInput" class="sheet-input" data-i18n-ph="habitPh" placeholder="New habit…">
+    <div class="picker-label" data-i18n="iconLabel">Icon</div>
+    <div class="icon-row">
+      <input id="habitIcon" class="icon-input" value="⭐" inputmode="text" autocomplete="off">
+      <div class="emoji-grid" id="emojiSuggest"></div>
+    </div>
+    <div class="picker-hint" data-i18n="emojiHint"></div>
+    <div class="picker-label" data-i18n="colorLabel">Color</div>
+    <div class="color-row" id="habitColorRow"></div>
+    <div class="picker-label" data-i18n="repeatLabel">Repeat on</div>
+    <div class="days-row" id="habitDaysSel"></div>
+    <div class="row2">
+      <input id="habitGoal" type="number" inputmode="numeric" class="mono sheet-input" data-i18n-ph="goalPh" placeholder="Goal (optional)">
+      <input id="habitUnit" type="text" class="sheet-input" data-i18n-ph="unitPh" placeholder="Unit (ml, times…)">
+    </div>
+    <button class="primary sheet-primary" id="habitAdd" data-i18n="add">Add</button>
+  </div>
+</div>
+
+<!-- ================= WEEKLY SUMMARY SHEET ================= -->
+<div class="settings-sheet" id="summarySheet">
+  <div class="settings-head">
+    <h2 data-i18n="summaryTitle">Weekly Summary</h2>
+    <button class="sheet-close" data-close-sheet aria-label="Close">✕</button>
+  </div>
+  <div class="settings-body">
+    <div class="week-head">
+      <button class="week-nav" id="sumPrev" aria-label="Previous week">‹</button>
+      <div class="week-range mono" id="sumRange">—</div>
+      <button class="week-nav" id="sumNext" aria-label="Next week">›</button>
+    </div>
+    <div class="sum-wrap"><table class="sum-grid" id="summaryGrid"></table></div>
   </div>
 </div>
 

@@ -374,3 +374,37 @@ nav.bottom button.active{color:var(--text); background:var(--surface-2); box-sha
   .hcard-icon{background:color-mix(in srgb, var(--c) 22%, transparent);}
   .hcard-check{border-color:color-mix(in srgb, var(--c) 55%, var(--line));}
 }
+
+/* ===== Header actions (New Habit + Summary) ===== */
+.head-title{min-width:0; flex:0 1 auto;}
+.head-actions{display:flex; align-items:center; gap:8px; flex:none;}
+.head-pill{display:flex; align-items:center; gap:5px; background:var(--day); color:var(--primary-text); border:none; border-radius:12px; padding:0 13px; height:44px; font-size:13px; font-weight:800; cursor:pointer; font-family:inherit; white-space:nowrap;}
+.head-pill .plus{font-size:19px; font-weight:800; line-height:1;}
+.head-pill:active{transform:scale(0.96);}
+.head-icon{background:var(--surface); border:1px solid var(--line); color:var(--muted); width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:none;}
+
+/* ===== Sheet form (New Habit) ===== */
+.sheet-input{width:100%; background:var(--bg); border:1px solid var(--line); color:var(--text); border-radius:11px; padding:12px 13px; font-family:inherit; font-size:15px;}
+.sheet-input:focus{outline:none; border-color:var(--day);}
+.settings-body .row2{display:flex; gap:8px; margin-top:8px;}
+.sheet-primary{width:100%; margin-top:18px; background:var(--day); color:var(--primary-text); border:none; border-radius:12px; padding:14px; font-size:15px; font-weight:800; cursor:pointer; font-family:inherit;}
+.picker-hint{font-size:11px; color:var(--muted); margin:8px 2px 0; line-height:1.6;}
+
+/* ===== Weekly summary grid ===== */
+.sum-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch; margin-top:4px;}
+.sum-grid{border-collapse:collapse; width:100%; min-width:330px;}
+.sum-grid th, .sum-grid td{text-align:center; padding:8px 3px;}
+.sum-grid th{font-size:12px; font-weight:800; color:var(--muted);}
+.sum-grid th.is-today{color:var(--day);}
+.sum-grid tr:not(:first-child) td{border-top:1px solid var(--line);}
+.sum-name-h{width:42%;}
+.sum-name{text-align:start; max-width:0;}
+.sum-name .sum-ic{font-size:16px; margin-inline-end:7px;}
+.sum-name .sum-ic img{width:20px; height:20px; border-radius:6px; object-fit:cover; vertical-align:middle;}
+.sum-txt{font-size:12.5px; font-weight:700;}
+.sum-cell{display:inline-block; width:22px; height:22px; border-radius:7px; border:1px solid var(--line); background:var(--surface-2); vertical-align:middle;}
+.sum-cell.done{background:var(--c); border-color:var(--c);}
+.sum-cell.na{border:none; background:none; position:relative;}
+.sum-cell.na::before{content:''; position:absolute; left:50%; top:50%; width:13px; height:13px; margin:-6.5px 0 0 -6.5px; border-radius:50%; border:1.5px solid var(--line);}
+.sum-cell.na::after{content:''; position:absolute; left:50%; top:50%; width:15px; height:1.5px; margin:-0.75px 0 0 -7.5px; background:var(--line); transform:rotate(45deg);}
+.sum-empty{padding:26px; color:var(--muted); font-size:13px; text-align:center;}

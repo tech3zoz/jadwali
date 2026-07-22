@@ -45,6 +45,7 @@ const T = {
     freq_daily:'Daily', freq_weekly:'Weekly', freq_monthly:'Monthly',
     streakUnit_daily:'Day', streakUnit_weekly:'Week', streakUnit_monthly:'Month',
     iconLabel:'Icon', colorLabel:'Color', repeatLabel:'Repeat on', noHabitsToday:'No habits for this day',
+    newHabit:'New Habit', summaryTitle:'Weekly Summary', emojiHint:'Tap the box and use your keyboard’s emoji 😀 to pick any icon.',
     left:'left', goalPh:'Goal (optional)', unitPh:'Unit (ml, times…)', addAmountPh:'amount', save:'Save',
     habitNote:'Choose a frequency (daily / weekly / monthly). Add an optional goal + unit to make it measurable — e.g. Drink water 2000 ml, or Gym 3 times/week. Tap ⚙️ on any habit to edit it. The dots show your last 7 periods; the 🔥 streak counts consecutive completed periods.',
     foodDivider:'🍽️ Food', foodCaloriesToday:"Today's calories",
@@ -82,6 +83,7 @@ const T = {
     freq_daily:'يومي', freq_weekly:'أسبوعي', freq_monthly:'شهري',
     streakUnit_daily:'يوم', streakUnit_weekly:'أسبوع', streakUnit_monthly:'شهر',
     iconLabel:'الأيقونة', colorLabel:'اللون', repeatLabel:'يتكرر أيام', noHabitsToday:'ما فيه عادات لهذا اليوم',
+    newHabit:'عادة جديدة', summaryTitle:'ملخّص الأسبوع', emojiHint:'دوس على المربع واستخدم لوحة الإيموجي 😀 بجوالك لاختيار أي أيقونة.',
     left:'باقي', goalPh:'الهدف (اختياري)', unitPh:'الوحدة (مل، مرات…)', addAmountPh:'كمية', save:'حفظ',
     habitNote:'اختر التكرار (يومي / أسبوعي / شهري). تقدر تضيف هدف + وحدة عشان تصير قابلة للقياس — مثل: اشرب ماي ٢٠٠٠ مل، أو نادي ٣ مرات/أسبوع. دوس ⚙️ على أي عادة عشان تعدّلها. النقاط توريك آخر ٧ فترات، والستريك 🔥 يحسب الفترات المكتملة المتتالية.',
     foodDivider:'🍽️ الأكل', foodCaloriesToday:'سعرات اليوم',
@@ -652,6 +654,8 @@ function renderHabits(){
         ${panel}
       </div>`;
   }).join('');
+  const ss = document.getElementById('summarySheet');
+  if(ss && ss.classList.contains('open')) renderSummary();
 }
 
 // ---- Week rail: pick day + navigate weeks ----
@@ -700,8 +704,58 @@ document.getElementById('habitAdd').addEventListener('click', () => {
   saveHabits(all);
   input.value = ''; document.getElementById('habitGoal').value = ''; document.getElementById('habitUnit').value = '';
   addIcon = '⭐'; document.getElementById('habitIcon').value = addIcon;
+  document.getElementById('habitSheet').classList.remove('open');
   renderWeekStrip(); renderHabits();
 });
+
+// ---- New Habit sheet (opened from the header + button) ----
+function openHabitSheet(){
+  addColor = DEFAULT_COLOR; addIcon = '⭐'; addDays = ALL_DAYS.slice();
+  document.getElementById('habitInput').value = '';
+  document.getElementById('habitGoal').value = '';
+  document.getElementById('habitUnit').value = '';
+  setupHabitAddPickers();
+  document.getElementById('habitSheet').classList.add('open');
+}
+document.getElementById('newHabitBtn').addEventListener('click', openHabitSheet);
+document.querySelectorAll('[data-close-sheet]').forEach(b =>
+  b.addEventListener('click', () => b.closest('.settings-sheet').classList.remove('open')));
+
+// ---- Weekly summary grid (opened from the header sheet-of-paper button) ----
+let sumWeekStart = mondayOf(new Date());
+function openSummary(){ renderSummary(); document.getElementById('summarySheet').classList.add('open'); }
+document.getElementById('summaryBtn').addEventListener('click', openSummary);
+document.getElementById('sumPrev').addEventListener('click', () => { sumWeekStart.setDate(sumWeekStart.getDate()-7); renderSummary(); });
+document.getElementById('sumNext').addEventListener('click', () => { sumWeekStart.setDate(sumWeekStart.getDate()+7); renderSummary(); });
+
+function renderSummary(){
+  const items = loadHabits().slice().sort((a,b) => (a.order||0)-(b.order||0));
+  const cols = [];
+  for(let i=0; i<7; i++){ const d = new Date(sumWeekStart); d.setDate(sumWeekStart.getDate()+i); cols.push(d); } // Mon..Sun
+  const letters = WD_PICK[lang] || WD_PICK.en; // indexed by getDay (0=Sun)
+  const today = dateOnly(new Date()).getTime();
+  const head = `<tr><th class="sum-name-h"></th>` +
+    cols.map(d => `<th class="${d.getTime()===today?'is-today':''}">${letters[d.getDay()]}</th>`).join('') + `</tr>`;
+  let rows;
+  if(!items.length){
+    rows = `<tr><td class="sum-empty" colspan="8">${t('habitEmpty')}</td></tr>`;
+  } else {
+    rows = items.map(h => {
+      const cells = cols.map(d => {
+        if(!scheduledOn(h, d)) return `<td><span class="sum-cell na"></span></td>`;
+        const done = habitDoneOn(h, d);
+        return `<td><span class="sum-cell ${done?'done':''}" style="--c:${h.color||DEFAULT_COLOR}"></span></td>`;
+      }).join('');
+      const icon = h.image ? `<img src="${h.image}" alt="">` : (h.icon || '⭐');
+      return `<tr><td class="sum-name"><span class="sum-ic">${icon}</span><span class="sum-txt">${escapeHtml(h.text)}</span></td>${cells}</tr>`;
+    }).join('');
+  }
+  document.getElementById('summaryGrid').innerHTML = head + rows;
+  const end = new Date(sumWeekStart); end.setDate(sumWeekStart.getDate()+6);
+  const p = n => String(n).padStart(2,'0');
+  document.getElementById('sumRange').textContent =
+    `${p(sumWeekStart.getDate())}/${p(sumWeekStart.getMonth()+1)} ~ ${p(end.getDate())}/${p(end.getMonth()+1)}`;
+}
 
 // ---- Card interactions ----
 document.getElementById('habitList').addEventListener('click', e => {
