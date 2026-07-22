@@ -48,6 +48,7 @@ const T = {
     iconLabel:'Icon', colorLabel:'Color', repeatLabel:'Repeat on', noHabitsToday:'No habits for this day',
     newHabit:'New Habit', summaryTitle:'Weekly Summary', emojiHint:'Tap the box and use your keyboard’s emoji 😀 to pick any icon.',
     habitTrackerTitle:'Habit Tracker', habitTrackerTagline:'Small steps, every single day 🌟', restDay:'Rest day — nothing scheduled',
+    legDone:'Done', legMissed:'Missed', legPending:'Pending', legOff:'Not scheduled',
     settingsTitle:'App title', appTitlePh:'App title', manageCats:'Categories', newCat:'New category', catNamePh:'Category name',
     taskPriorityBtn:'Priority', grpImportant:'Important', grpNormal:'Normal (anytime)', grpCompleted:'Completed', noneHere:'Nothing here',
     repeatLabelAppt:'Repeat', repOnce:'Once', repDaily:'Daily', repWeekly:'Weekly', repCustom:'Days',
@@ -91,6 +92,7 @@ const T = {
     iconLabel:'الأيقونة', colorLabel:'اللون', repeatLabel:'يتكرر أيام', noHabitsToday:'ما فيه عادات لهذا اليوم',
     newHabit:'عادة جديدة', summaryTitle:'ملخّص الأسبوع', emojiHint:'دوس على المربع واستخدم لوحة الإيموجي 😀 بجوالك لاختيار أي أيقونة.',
     habitTrackerTitle:'متتبع العادات', habitTrackerTagline:'خطوة صغيرة كل يوم 🌟', restDay:'يوم راحة — ما فيه شي مجدول',
+    legDone:'تم', legMissed:'فات', legPending:'باقي', legOff:'غير مجدول',
     settingsTitle:'اسم التطبيق', appTitlePh:'اسم التطبيق', manageCats:'التصنيفات', newCat:'تصنيف جديد', catNamePh:'اسم التصنيف',
     taskPriorityBtn:'الأولوية', grpImportant:'مهم', grpNormal:'عادي (بأي وقت)', grpCompleted:'مكتمل', noneHere:'ما فيه شي هنا',
     repeatLabelAppt:'التكرار', repOnce:'مرة', repDaily:'يومي', repWeekly:'أسبوعي', repCustom:'أيام',
@@ -179,7 +181,13 @@ function fmtHMS(ms){
   const s = Math.floor(ms/1000);
   return `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
 }
-function todayStr(){ return dateOnly(new Date()).toISOString().slice(0,10); }
+// NOTE: never use toISOString() for calendar dates — it converts to UTC, which
+// rolls back a day for every UTC+ timezone. Always build from LOCAL parts.
+function ymd(d){
+  const x = dateOnly(d);
+  return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
+}
+function todayStr(){ return ymd(new Date()); }
 
 const RING_LEN = 157;
 
@@ -518,40 +526,41 @@ const LEVEL_ORDER = { high:0, normal:1 };
 const LEVEL_CYCLE = ['high','normal'];
 
 function taskRowHtml(t){
-  return `<div class="item-row" data-id="${t.id}">
-      <div class="dot ${t.level}" data-action="cycle"></div>
+  return `<div class="item-row ${t.level==='high'?'is-priority':''}" data-id="${t.id}">
+      <div class="dot ${t.level}" data-action="cycle" title="priority"></div>
       <div class="chk ${t.done?'done':''}" data-action="toggle">${t.done?'✓':''}</div>
       <div class="item-text ${t.done?'done':''}">${escapeHtml(t.text)}</div>
       <button class="icon-btn" data-action="del">✕</button>
     </div>`;
 }
+// Marking a task important moves it out of the normal list into its own
+// Priority section automatically (grouping is derived from level, so the
+// task jumps sections the moment its dot is tapped).
+function taskGroupsHtml(all){
+  const important = all.filter(x => !x.done && x.level === 'high');
+  const normal    = all.filter(x => !x.done && x.level === 'normal');
+  const done      = all.filter(x => x.done);
+  const group = (cls, icon, label, arr, emptyMsg) =>
+    `<div class="task-group-label ${cls}">${icon} ${label} (${arr.length})</div>` +
+    (arr.length ? arr.map(taskRowHtml).join('') : `<div class="empty">${emptyMsg}</div>`);
+  let html = group('is-priority', '🔴', t('grpImportant'), important, t('noneHere'));
+  html += group('', '⚪', t('grpNormal'), normal, t('noneHere'));
+  if(done.length) html += group('', '✅', t('grpCompleted'), done, t('noneHere'));
+  return html;
+}
 function renderTasks(){
   const all = loadTasks();
   const el = document.getElementById('taskList');
   if(!all.length){ el.innerHTML = `<div class="empty">${t('taskEmpty')}</div>`; return; }
-  const pending = all.filter(x => !x.done).sort((a,b) => LEVEL_ORDER[a.level]-LEVEL_ORDER[b.level]);
-  const done = all.filter(x => x.done).sort((a,b) => LEVEL_ORDER[a.level]-LEVEL_ORDER[b.level]);
-  let html = `<div class="task-group-label">⏳ ${t('pending')} (${pending.length})</div>`;
-  html += pending.length ? pending.map(taskRowHtml).join('') : `<div class="empty">${t('taskAllDone')}</div>`;
-  if(done.length){
-    html += `<div class="task-group-label">✅ ${t('done')} (${done.length})</div>`;
-    html += done.map(taskRowHtml).join('');
-  }
-  el.innerHTML = html;
+  el.innerHTML = taskGroupsHtml(all);
 }
 
-// ---- Priority sheet: same tasks, grouped into Important / Normal / Completed ----
+// ---- Priority sheet: same tasks, same grouping, focused full-screen view ----
 function renderPriority(){
   const all = loadTasks();
-  const important = all.filter(x => !x.done && x.level === 'high');
-  const normal = all.filter(x => !x.done && x.level === 'normal');
-  const done = all.filter(x => x.done);
-  const group = (icon, label, arr) => `<div class="task-group-label">${icon} ${label} (${arr.length})</div>` +
-    (arr.length ? arr.map(taskRowHtml).join('') : `<div class="empty">${t('noneHere')}</div>`);
-  document.getElementById('priorityList').innerHTML =
-    group('🔴', t('grpImportant'), important) +
-    group('⚪', t('grpNormal'), normal) +
-    group('✅', t('grpCompleted'), done);
+  document.getElementById('priorityList').innerHTML = all.length
+    ? taskGroupsHtml(all)
+    : `<div class="empty">${t('taskEmpty')}</div>`;
 }
 function refreshTaskViews(){
   renderTasks();
@@ -620,7 +629,7 @@ function hideUndoToast(){ document.getElementById('undoToast').classList.remove(
 //  Habits (daily/weekly/monthly, measurable goals, icon + color)
 //    schema: { id, text, freq, goal, unit, icon, color, log:{periodKey:amount} }
 // ============================================================
-function dstr(d){ return dateOnly(d).toISOString().slice(0,10); }
+function dstr(d){ return ymd(d); }   // timezone-safe (see ymd)
 
 const HABIT_COLORS = ['#2DD4BF','#4ADE80','#38BDF8','#A78BFA','#FB7185','#F5B942','#F97316','#F472B6'];
 // Large habit-relevant quick-pick set (the icon box also accepts ANY emoji from the keyboard)
@@ -636,6 +645,8 @@ const EMOJI_SUGGEST = [
 ];
 const WD_FULL = { en:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], ar:['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'] };
 const WD_LONG = { en:['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'], ar:['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'] };
+// compact headers for the weekly matrix (7 columns must fit without scrolling)
+const WD_SHORT = { en:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], ar:['أحد','اثن','ثلا','أرب','خمي','جمع','سبت'] };
 const DEFAULT_COLOR = HABIT_COLORS[0];
 const ALL_DAYS = [0,1,2,3,4,5,6];
 
@@ -652,6 +663,35 @@ function habitGoalNum(h){ return (h.goal && h.goal > 0) ? h.goal : 1; }
 function isMeasurable(h){ return !!(h.goal && h.goal > 0); }
 function habitAmount(h, key){ return (h.log && h.log[key]) || 0; }
 function habitDoneOn(h, d){ return habitAmount(h, dstr(d)) >= habitGoalNum(h); }
+
+// One-time repair: habit log keys written before the timezone fix were stored
+// one day early on UTC+ devices (toISOString rolled local midnight back a day).
+// Shift them forward so existing streaks/history land on the right dates.
+(function fixLegacyLogDates(){
+  if(localStorage.getItem('aziz_tzfix_v1')) return;
+  try{
+    // getTimezoneOffset() is negative for UTC+ zones — only those were affected.
+    if(new Date().getTimezoneOffset() < 0){
+      const raw = localStorage.getItem('aziz_habits');
+      if(raw){
+        const items = JSON.parse(raw);
+        items.forEach(h => {
+          if(!h || !h.log) return;
+          const moved = {};
+          Object.keys(h.log).forEach(k => {
+            const d = new Date(k + 'T00:00:00');
+            if(isNaN(d)){ moved[k] = h.log[k]; return; }
+            d.setDate(d.getDate() + 1);
+            moved[`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`] = h.log[k];
+          });
+          h.log = moved;
+        });
+        localStorage.setItem('aziz_habits', JSON.stringify(items));
+      }
+    }
+  }catch(e){}
+  localStorage.setItem('aziz_tzfix_v1', '1');
+})();
 
 function loadHabits(){
   const raw = localStorage.getItem('aziz_habits');
@@ -870,7 +910,10 @@ document.getElementById('habitAdd').addEventListener('click', () => {
 
 // ---- New Habit sheet (opened from the header + button) ----
 function openHabitSheet(){
-  addColor = DEFAULT_COLOR; addIcon = '⭐'; addDays = ALL_DAYS.slice();
+  addColor = DEFAULT_COLOR; addIcon = '⭐';
+  // default the repeat to the day currently selected in the rail, so adding a
+  // habit while viewing e.g. Thursday creates it on Thursday
+  addDays = [habitDay.getDay()];
   document.getElementById('habitInput').value = '';
   document.getElementById('habitGoal').value = '';
   document.getElementById('habitUnit').value = '';
@@ -888,43 +931,54 @@ document.getElementById('summaryBtn').addEventListener('click', openSummary);
 document.getElementById('sumPrev').addEventListener('click', () => { sumWeekStart.setDate(sumWeekStart.getDate()-7); renderSummary(); });
 document.getElementById('sumNext').addEventListener('click', () => { sumWeekStart.setDate(sumWeekStart.getDate()+7); renderSummary(); });
 
-// Full-page vertical layout: every day of the week is its own card, all
-// visible by scrolling down the page — no horizontal swiping between days.
+// Matrix layout (like a printed habit tracker): habits down the side, the 7
+// days across the top. Sized to fit the screen — no horizontal swiping.
 function renderSummary(){
   const items = loadHabits().slice().sort((a,b) => (a.order||0)-(b.order||0));
   const el = document.getElementById('summaryGrid');
+  const short = WD_SHORT[lang] || WD_SHORT.en;
+  const today = dateOnly(new Date()).getTime();
+  const cols = [];
+  for(let i=0; i<7; i++){ const d = new Date(sumWeekStart); d.setDate(sumWeekStart.getDate()+i); cols.push(d); } // Mon..Sun
+
   if(!items.length){
     el.innerHTML = `<div class="empty">${t('habitEmpty')}</div>`;
   } else {
-    const names = WD_LONG[lang] || WD_LONG.en; // indexed by getDay (0=Sun)
-    const today = dateOnly(new Date()).getTime();
-    const cols = [];
-    for(let i=0; i<7; i++){ const d = new Date(sumWeekStart); d.setDate(sumWeekStart.getDate()+i); cols.push(d); } // Mon..Sun
+    const head = `<tr><th class="hm-corner"></th>` +
+      cols.map(d => `<th class="${d.getTime()===today?'is-today':''}">
+        <span class="hm-wd">${short[d.getDay()]}</span>
+        <span class="hm-dn mono">${d.getDate()}</span>
+      </th>`).join('') + `<th class="hm-sum">✓</th></tr>`;
 
-    el.innerHTML = cols.map(d => {
-      const dayItems = items.filter(h => scheduledOn(h, d));
-      const doneCount = dayItems.filter(h => habitDoneOn(h, d)).length;
-      const schedCount = dayItems.length;
-      const pct = schedCount ? Math.round(doneCount / schedCount * 100) : 0;
-      const isToday = d.getTime() === today;
-      const chips = schedCount
-        ? dayItems.map(h => {
-            const done = habitDoneOn(h, d);
-            const icon = h.image ? `<img src="${h.image}" alt="">` : (h.icon || '⭐');
-            return `<div class="day-chip ${done?'done':''}" style="--c:${h.color||DEFAULT_COLOR}">
-              <span class="day-chip-ic">${icon}</span><span class="day-chip-tx">${escapeHtml(h.text)}</span>
-            </div>`;
-          }).join('')
-        : `<div class="day-chip-empty">${t('restDay')}</div>`;
-      return `<div class="day-block ${isToday?'is-today':''}">
-        <div class="day-block-head">
-          <div class="day-block-name">${names[d.getDay()]}<span class="day-block-date mono">${d.getDate()}/${d.getMonth()+1}</span></div>
-          ${schedCount ? `<div class="day-block-frac mono">${doneCount}/${schedCount}</div>` : ''}
-        </div>
-        ${schedCount ? `<div class="day-block-bar"><div class="day-block-fill" style="width:${pct}%"></div></div>` : ''}
-        <div class="day-chip-row">${chips}</div>
-      </div>`;
+    const rows = items.map(h => {
+      let done = 0, sched = 0, missed = 0;
+      const cells = cols.map(d => {
+        if(!scheduledOn(h, d)) return `<td><span class="hm-cell na"></span></td>`;
+        sched++;
+        const isDone = habitDoneOn(h, d);
+        if(isDone){ done++; return `<td><span class="hm-cell done" style="--c:${h.color||DEFAULT_COLOR}">✓</span></td>`; }
+        // a scheduled day already in the past that was not completed = missed
+        if(d.getTime() < today){ missed++; return `<td><span class="hm-cell missed">✕</span></td>`; }
+        return `<td><span class="hm-cell pending" style="--c:${h.color||DEFAULT_COLOR}"></span></td>`;
+      }).join('');
+      const icon = h.image ? `<img src="${h.image}" alt="">` : (h.icon || '⭐');
+      return `<tr>
+        <td class="hm-name">
+          <span class="hm-ic">${icon}</span><span class="hm-tx">${escapeHtml(h.text)}</span>
+          ${missed ? `<span class="hm-missed-tag">-${missed}</span>` : ''}
+        </td>
+        ${cells}
+        <td class="hm-sum mono">${done}/${sched}</td>
+      </tr>`;
     }).join('');
+
+    el.innerHTML = `<div class="hm-wrap"><table class="hm-grid">${head}${rows}</table></div>
+      <div class="hm-legend">
+        <span><i class="hm-cell done sample">✓</i>${t('legDone')}</span>
+        <span><i class="hm-cell missed sample">✕</i>${t('legMissed')}</span>
+        <span><i class="hm-cell pending sample"></i>${t('legPending')}</span>
+        <span><i class="hm-cell na sample"></i>${t('legOff')}</span>
+      </div>`;
   }
   const end = new Date(sumWeekStart); end.setDate(sumWeekStart.getDate()+6);
   const p = n => String(n).padStart(2,'0');
