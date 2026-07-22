@@ -49,6 +49,7 @@ const T = {
     newHabit:'New Habit', summaryTitle:'Weekly Summary', emojiHint:'Tap the box and use your keyboard’s emoji 😀 to pick any icon.',
     habitTrackerTitle:'Habit Tracker', habitTrackerTagline:'Small steps, every single day 🌟', restDay:'Rest day — nothing scheduled',
     settingsTitle:'App title', appTitlePh:'App title', manageCats:'Categories', newCat:'New category', catNamePh:'Category name',
+    taskPriorityBtn:'Priority', grpImportant:'Important', grpNormal:'Normal (anytime)', grpCompleted:'Completed', noneHere:'Nothing here',
     repeatLabelAppt:'Repeat', repOnce:'Once', repDaily:'Daily', repWeekly:'Weekly', repCustom:'Days',
     untilLabel:'Ends on (optional)', thisWeekOnly:'This week only', everyWord:'Every', pickDaysMsg:'Pick at least one day',
     left:'left', goalPh:'Goal (optional)', unitPh:'Unit (ml, times…)', addAmountPh:'amount', save:'Save',
@@ -91,6 +92,7 @@ const T = {
     newHabit:'عادة جديدة', summaryTitle:'ملخّص الأسبوع', emojiHint:'دوس على المربع واستخدم لوحة الإيموجي 😀 بجوالك لاختيار أي أيقونة.',
     habitTrackerTitle:'متتبع العادات', habitTrackerTagline:'خطوة صغيرة كل يوم 🌟', restDay:'يوم راحة — ما فيه شي مجدول',
     settingsTitle:'اسم التطبيق', appTitlePh:'اسم التطبيق', manageCats:'التصنيفات', newCat:'تصنيف جديد', catNamePh:'اسم التصنيف',
+    taskPriorityBtn:'الأولوية', grpImportant:'مهم', grpNormal:'عادي (بأي وقت)', grpCompleted:'مكتمل', noneHere:'ما فيه شي هنا',
     repeatLabelAppt:'التكرار', repOnce:'مرة', repDaily:'يومي', repWeekly:'أسبوعي', repCustom:'أيام',
     untilLabel:'ينتهي في (اختياري)', thisWeekOnly:'هذا الأسبوع فقط', everyWord:'كل', pickDaysMsg:'اختر يوم واحد على الأقل',
     left:'باقي', goalPh:'الهدف (اختياري)', unitPh:'الوحدة (مل، مرات…)', addAmountPh:'كمية', save:'حفظ',
@@ -537,6 +539,30 @@ function renderTasks(){
   }
   el.innerHTML = html;
 }
+
+// ---- Priority sheet: same tasks, grouped into Important / Normal / Completed ----
+function renderPriority(){
+  const all = loadTasks();
+  const important = all.filter(x => !x.done && x.level === 'high');
+  const normal = all.filter(x => !x.done && x.level === 'normal');
+  const done = all.filter(x => x.done);
+  const group = (icon, label, arr) => `<div class="task-group-label">${icon} ${label} (${arr.length})</div>` +
+    (arr.length ? arr.map(taskRowHtml).join('') : `<div class="empty">${t('noneHere')}</div>`);
+  document.getElementById('priorityList').innerHTML =
+    group('🔴', t('grpImportant'), important) +
+    group('⚪', t('grpNormal'), normal) +
+    group('✅', t('grpCompleted'), done);
+}
+function refreshTaskViews(){
+  renderTasks();
+  const ps = document.getElementById('prioritySheet');
+  if(ps && ps.classList.contains('open')) renderPriority();
+}
+document.getElementById('taskPriorityBtn').addEventListener('click', () => {
+  renderPriority();
+  document.getElementById('prioritySheet').classList.add('open');
+});
+
 document.getElementById('taskAdd').addEventListener('click', addTask);
 document.getElementById('taskInput').addEventListener('keydown', e => { if(e.key==='Enter') addTask(); });
 function addTask(){
@@ -544,34 +570,37 @@ function addTask(){
   const text = input.value.trim(); if(!text) return;
   const tasks = loadTasks();
   tasks.unshift({ id: Date.now().toString(), text, done:false, level:'normal' });
-  saveTasks(tasks); input.value=''; renderTasks();
+  saveTasks(tasks); input.value=''; refreshTaskViews();
 }
-document.getElementById('taskList').addEventListener('click', e => {
+function handleTaskListClick(e){
   const row = e.target.closest('.item-row'); if(!row) return;
   const id = row.dataset.id;
   let tasks = loadTasks();
   const idx = tasks.findIndex(x => x.id === id);
+  if(idx === -1) return;
   const action = e.target.dataset.action;
   if(action === 'toggle'){
     const prevDone = tasks[idx].done;
     tasks[idx].done = !prevDone;
-    saveTasks(tasks); renderTasks();
+    saveTasks(tasks); refreshTaskViews();
     showUndoToast(tasks[idx].done ? t('taskMovedDone') : t('taskMovedPending'), () => {
       const t2 = loadTasks(); const i2 = t2.findIndex(x => x.id === id);
-      if(i2 > -1){ t2[i2].done = prevDone; saveTasks(t2); renderTasks(); }
+      if(i2 > -1){ t2[i2].done = prevDone; saveTasks(t2); refreshTaskViews(); }
     });
   } else if(action === 'del'){
     const removed = tasks[idx]; const removedIndex = idx;
     tasks.splice(idx, 1);
-    saveTasks(tasks); renderTasks();
+    saveTasks(tasks); refreshTaskViews();
     showUndoToast(t('taskDeleted'), () => {
-      const t2 = loadTasks(); t2.splice(removedIndex, 0, removed); saveTasks(t2); renderTasks();
+      const t2 = loadTasks(); t2.splice(removedIndex, 0, removed); saveTasks(t2); refreshTaskViews();
     });
   } else if(action === 'cycle'){
-    tasks[idx].level = LEVEL_CYCLE[(LEVEL_CYCLE.indexOf(tasks[idx].level)+1)%3];
-    saveTasks(tasks); renderTasks();
+    tasks[idx].level = LEVEL_CYCLE[(LEVEL_CYCLE.indexOf(tasks[idx].level)+1) % LEVEL_CYCLE.length];
+    saveTasks(tasks); refreshTaskViews();
   }
-});
+}
+document.getElementById('taskList').addEventListener('click', handleTaskListClick);
+document.getElementById('priorityList').addEventListener('click', handleTaskListClick);
 
 // ============================================================
 //  Undo toast
@@ -714,7 +743,7 @@ function renderWeekStrip(){
     html += `<button class="ws-day ${sel?'sel':''} ${isToday?'today':''}" data-date="${dstr(d)}">
       <span class="ws-wd">${wd[d.getDay()]}</span>
       <span class="ws-ring">
-        <svg viewBox="0 0 28 28" width="36" height="36">
+        <svg viewBox="0 0 28 28" width="32" height="32">
           <circle class="ws-track" cx="14" cy="14" r="10"></circle>
           <circle class="ws-fill" cx="14" cy="14" r="10" stroke-dasharray="${CIRC}" stroke-dashoffset="${offset}"></circle>
         </svg>
@@ -1222,6 +1251,8 @@ function rerenderAll(){
   renderTasks(); renderWeekStrip(); renderHabits(); renderFood(); renderIdeas();
   updateHero();
   renderSettings();
+  const ps = document.getElementById('prioritySheet');
+  if(ps && ps.classList.contains('open')) renderPriority();
 }
 
 function renderSettings(){

@@ -126,7 +126,12 @@
 <section class="panel" id="panel-tasks">
   <div class="add-card">
     <input id="taskInput" data-i18n-ph="taskPh" placeholder="Add a new task…">
-    <button class="primary" id="taskAdd" data-i18n="add">Add</button>
+    <div class="row2">
+      <button class="primary" id="taskAdd" data-i18n="add" style="flex:2;">Add</button>
+      <button class="btn-outline" id="taskPriorityBtn" style="flex:1;">
+        <span class="dot high" style="display:inline-block; margin-inline-end:6px;"></span><span data-i18n="taskPriorityBtn">Priority</span>
+      </button>
+    </div>
   </div>
   <div id="taskList"></div>
   <div class="note" data-i18n="taskNote"></div>
@@ -281,6 +286,17 @@
       <input id="catName" class="sheet-input" data-i18n-ph="catNamePh" placeholder="Category name">
     </div>
     <button class="primary sheet-primary" id="catAdd" data-i18n="add">Add</button>
+  </div>
+</div>
+
+<!-- ================= TASK PRIORITY SHEET ================= -->
+<div class="settings-sheet" id="prioritySheet">
+  <div class="settings-head">
+    <h2 data-i18n="taskPriorityBtn">Priority</h2>
+    <button class="sheet-close" data-close-sheet aria-label="Close">✕</button>
+  </div>
+  <div class="settings-body">
+    <div id="priorityList"></div>
   </div>
 </div>
 
