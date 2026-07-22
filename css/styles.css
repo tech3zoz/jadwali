@@ -55,7 +55,7 @@ html[data-theme="starry"] header.top{background:rgba(5,4,20,0.88);}
 header.top h1{font-size:17px; font-weight:900; margin:0;}
 header.top .sub{font-size:10.5px; color:var(--muted); font-weight:500;}
 .hero{
-  margin:12px 16px; background:linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+  margin:6px 0 14px; background:linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
   border:1px solid var(--line); border-radius:18px; padding:14px 16px;
   display:flex; align-items:center; gap:14px;
 }
@@ -161,7 +161,8 @@ section.panel.active{display:block;}
 .icon-btn:hover{color:var(--high);}
 .cal-btn{background:var(--surface-2); border:1px solid var(--line); color:var(--day); font-size:16px; border-radius:9px; padding:6px 9px; cursor:pointer; flex:none;}
 .dot{width:10px; height:10px; border-radius:50%; flex:none; cursor:pointer;}
-.dot.high{background:var(--high);} .dot.med{background:var(--med);} .dot.low{background:var(--low);}
+.dot.high{background:var(--high);} .dot.normal{background:var(--low);}
+.dot.med{background:var(--med);} .dot.low{background:var(--low);}
 .streak{font-size:11px; color:var(--afternoon); font-weight:700; flex:none;}
 .hdots{display:flex; gap:3px; margin-top:5px;}
 .hdot{width:7px; height:7px; border-radius:50%; background:var(--high); opacity:0.55; flex:none;}
@@ -321,11 +322,15 @@ nav.bottom button.active{color:var(--text); background:var(--surface-2); box-sha
 .ws-track{fill:none; stroke:var(--line); stroke-width:3;}
 .ws-fill{fill:none; stroke:var(--ok); stroke-width:3; stroke-linecap:round; transition:stroke-dashoffset .3s;}
 .ws-num{font-size:13px; font-weight:800;}
-.ws-day.today .ws-num{color:var(--text);}
+/* today stands out in its own colour, separate from the selected day */
+.ws-day.today .ws-wd{color:var(--afternoon); font-weight:800;}
+.ws-day.today .ws-num{color:var(--afternoon);}
+.ws-day.today .ws-ring{box-shadow:0 0 0 2px var(--afternoon); border-radius:50%;}
 .ws-day.sel .ws-wd{color:var(--text);}
 .ws-day.sel .ws-ring{background:var(--day); border-radius:50%;}
 .ws-day.sel .ws-num{color:var(--primary-text);}
 .ws-day.sel .ws-track{stroke:rgba(255,255,255,0.35);}
+.ws-day.today.sel .ws-num{color:var(--primary-text);}
 
 .icon-row{display:flex; align-items:center; gap:10px;}
 .icon-input{width:50px; height:46px; text-align:center; font-size:22px; background:var(--bg); border:1px solid var(--line); border-radius:12px; color:var(--text); flex:none;}
@@ -426,6 +431,9 @@ header.top.ideas-active .ideas-only{display:flex;}
 .cat-row{display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:8px;}
 .cat-emoji{font-size:20px; flex:none;}
 .cat-name{flex:1; min-width:0; font-size:14px; font-weight:700; overflow:hidden; text-overflow:ellipsis;}
+.rep-badge{color:var(--afternoon); font-weight:700;}
+#apptDaysSel{margin-top:2px;}
+#apptUntilWrap .seg-btn{flex:none; padding:11px 12px;}
 .cat-add-row{display:flex; gap:8px; align-items:center;}
 .cat-add-row .icon-input{flex:none;}
 .cat-add-row .sheet-input{flex:1;}

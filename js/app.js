@@ -39,7 +39,7 @@ const T = {
     apptAdded:'Added ✓ — open the calendar file that downloaded to confirm',
     upcomingTitle:'🗓️ Upcoming', today:'Today', tomorrow:'Tomorrow',
     taskPh:'Add a new task…', add:'Add',
-    taskNote:'Tap the colored dot to change priority (red = important, yellow = medium, teal = low) — important ones rise to the top automatically.',
+    taskNote:'Tap the colored dot to switch priority: red = important/urgent, teal = normal (anytime). Important ones rise to the top automatically.',
     taskEmpty:'No tasks yet', pending:'Pending', done:'Done', taskAllDone:'All done 🎉',
     taskMovedDone:'Moved to "Done"', taskMovedPending:'Moved back to "Pending"', taskDeleted:'Task deleted', undo:'Undo',
     habitPh:'New habit… e.g. Drink water', habitEmpty:'No habits added',
@@ -48,6 +48,8 @@ const T = {
     iconLabel:'Icon', colorLabel:'Color', repeatLabel:'Repeat on', noHabitsToday:'No habits for this day',
     newHabit:'New Habit', summaryTitle:'Weekly Summary', emojiHint:'Tap the box and use your keyboard’s emoji 😀 to pick any icon.',
     settingsTitle:'App title', appTitlePh:'App title', manageCats:'Categories', newCat:'New category', catNamePh:'Category name',
+    repeatLabelAppt:'Repeat', repOnce:'Once', repDaily:'Daily', repWeekly:'Weekly', repCustom:'Days',
+    untilLabel:'Ends on (optional)', thisWeekOnly:'This week only', everyWord:'Every', pickDaysMsg:'Pick at least one day',
     left:'left', goalPh:'Goal (optional)', unitPh:'Unit (ml, times…)', addAmountPh:'amount', save:'Save',
     habitNote:'Choose a frequency (daily / weekly / monthly). Add an optional goal + unit to make it measurable — e.g. Drink water 2000 ml, or Gym 3 times/week. Tap ⚙️ on any habit to edit it. The dots show your last 7 periods; the 🔥 streak counts consecutive completed periods.',
     foodDivider:'🍽️ Food', foodCaloriesToday:"Today's calories",
@@ -78,7 +80,7 @@ const T = {
     apptAdded:'تمت الإضافة ✓ — افتح ملف التقويم اللي نزل عشان تأكد الإضافة',
     upcomingTitle:'🗓️ مواعيد قريبة', today:'اليوم', tomorrow:'باجر',
     taskPh:'أضف مهمة جديدة…', add:'إضافة',
-    taskNote:'اضغط النقطة الملونة لتغيير الأولوية (أحمر مهم، أصفر متوسط، تركواز بسيط) — المهم يطلع فوق تلقائي.',
+    taskNote:'اضغط النقطة الملونة لتبديل الأولوية: أحمر = مهم/عاجل، تركواز = عادي (بأي وقت). المهم يطلع فوق تلقائي.',
     taskEmpty:'ما فيه مهام حالياً', pending:'باقي', done:'خلصت', taskAllDone:'خلصت المهام 🎉',
     taskMovedDone:'انتقلت لـ"خلصت"', taskMovedPending:'رجعت لـ"باقي"', taskDeleted:'تم حذف المهمة', undo:'تراجع',
     habitPh:'عادة جديدة… مثل: اشرب ماي', habitEmpty:'ما فيه عادات مضافة',
@@ -87,6 +89,8 @@ const T = {
     iconLabel:'الأيقونة', colorLabel:'اللون', repeatLabel:'يتكرر أيام', noHabitsToday:'ما فيه عادات لهذا اليوم',
     newHabit:'عادة جديدة', summaryTitle:'ملخّص الأسبوع', emojiHint:'دوس على المربع واستخدم لوحة الإيموجي 😀 بجوالك لاختيار أي أيقونة.',
     settingsTitle:'اسم التطبيق', appTitlePh:'اسم التطبيق', manageCats:'التصنيفات', newCat:'تصنيف جديد', catNamePh:'اسم التصنيف',
+    repeatLabelAppt:'التكرار', repOnce:'مرة', repDaily:'يومي', repWeekly:'أسبوعي', repCustom:'أيام',
+    untilLabel:'ينتهي في (اختياري)', thisWeekOnly:'هذا الأسبوع فقط', everyWord:'كل', pickDaysMsg:'اختر يوم واحد على الأقل',
     left:'باقي', goalPh:'الهدف (اختياري)', unitPh:'الوحدة (مل، مرات…)', addAmountPh:'كمية', save:'حفظ',
     habitNote:'اختر التكرار (يومي / أسبوعي / شهري). تقدر تضيف هدف + وحدة عشان تصير قابلة للقياس — مثل: اشرب ماي ٢٠٠٠ مل، أو نادي ٣ مرات/أسبوع. دوس ⚙️ على أي عادة عشان تعدّلها. النقاط توريك آخر ٧ فترات، والستريك 🔥 يحسب الفترات المكتملة المتتالية.',
     foodDivider:'🍽️ الأكل', foodCaloriesToday:'سعرات اليوم',
@@ -292,11 +296,13 @@ function toICSDate(dt){
   const p = n => String(n).padStart(2,'0');
   return `${dt.getFullYear()}${p(dt.getMonth()+1)}${p(dt.getDate())}T${p(dt.getHours())}${p(dt.getMinutes())}00`;
 }
-function addToPhoneCalendar(title, start, end){
-  const ics = ['BEGIN:VCALENDAR','VERSION:2.0','BEGIN:VEVENT',
+function addToPhoneCalendar(title, start, end, rrule){
+  const lines = ['BEGIN:VCALENDAR','VERSION:2.0','BEGIN:VEVENT',
     `UID:${Date.now()}@jadwali`,`DTSTAMP:${toICSDate(new Date())}`,
-    `DTSTART:${toICSDate(start)}`,`DTEND:${toICSDate(end)}`,
-    `SUMMARY:${title.replace(/\r?\n/g,' ')}`,'END:VEVENT','END:VCALENDAR'].join('\r\n');
+    `DTSTART:${toICSDate(start)}`,`DTEND:${toICSDate(end)}`];
+  if(rrule) lines.push(`RRULE:${rrule}`);
+  lines.push(`SUMMARY:${title.replace(/\r?\n/g,' ')}`,'END:VEVENT','END:VCALENDAR');
+  const ics = lines.join('\r\n');
   const blob = new Blob([ics], {type:'text/calendar'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -308,20 +314,83 @@ function addToPhoneCalendar(title, start, end){
 // ============================================================
 //  Appointments
 // ============================================================
-function loadAppt(){ try{ return JSON.parse(localStorage.getItem('aziz_appointments')||'[]'); }catch(e){ return []; } }
+function loadAppt(){
+  let arr;
+  try{ arr = JSON.parse(localStorage.getItem('aziz_appointments')||'[]'); }catch(e){ return []; }
+  let changed = false;
+  arr = arr.map(a => {                       // migrate one-off appointments
+    if(a.repeat) return a;
+    changed = true;
+    return Object.assign({}, a, { repeat:'once', days:[], until:null });
+  });
+  if(changed) localStorage.setItem('aziz_appointments', JSON.stringify(arr));
+  return arr;
+}
 function saveAppt(a){ localStorage.setItem('aziz_appointments', JSON.stringify(a)); }
 
+// ---- recurrence ----
+function apptOccursOn(a, d){
+  const day = dateOnly(d);
+  const start = dateOnly(new Date(a.date + 'T00:00:00'));
+  if(day < start) return false;
+  if(a.until){ const u = dateOnly(new Date(a.until + 'T00:00:00')); if(day > u) return false; }
+  const rep = a.repeat || 'once';
+  if(rep === 'once')   return dstr(day) === a.date;
+  if(rep === 'daily')  return true;
+  if(rep === 'weekly') return day.getDay() === start.getDay();
+  if(rep === 'custom') return (a.days || []).includes(day.getDay());
+  return false;
+}
+function apptNextOccurrence(a, from){
+  const f = dateOnly(from || new Date());
+  for(let i=0; i<420; i++){
+    const d = new Date(f); d.setDate(d.getDate()+i);
+    if(apptOccursOn(a, d)) return d;
+  }
+  return null;
+}
+function apptRepeatLabel(a){
+  const rep = a.repeat || 'once';
+  const wd = WD_LONG[lang] || WD_LONG.en;
+  let s = '';
+  if(rep === 'daily') s = t('repDaily');
+  else if(rep === 'weekly') s = `${t('everyWord')} ${wd[dateOnly(new Date(a.date+'T00:00:00')).getDay()]}`;
+  else if(rep === 'custom') s = `${t('everyWord')} ${(a.days||[]).map(d => wd[d]).join(', ')}`;
+  if(s && a.until) s += ` → ${a.until}`;
+  return s;
+}
+function apptRRule(a){
+  const rep = a.repeat || 'once';
+  if(rep === 'once') return null;
+  const codes = ['SU','MO','TU','WE','TH','FR','SA'];
+  let r;
+  if(rep === 'daily') r = 'FREQ=DAILY';
+  else if(rep === 'weekly') r = `FREQ=WEEKLY;BYDAY=${codes[dateOnly(new Date(a.date+'T00:00:00')).getDay()]}`;
+  else r = `FREQ=WEEKLY;BYDAY=${(a.days||[]).map(d => codes[d]).join(',')}`;
+  if(a.until){ const u = new Date(a.until + 'T23:59:00'); r += `;UNTIL=${toICSDate(u)}`; }
+  return r;
+}
+
 function renderAppt(){
-  const items = loadAppt().sort((a,b)=> new Date(a.date+'T'+a.time) - new Date(b.date+'T'+b.time));
+  const items = loadAppt().slice().sort((a,b) => {
+    const na = apptNextOccurrence(a), nb = apptNextOccurrence(b);
+    if(!na && !nb) return 0;
+    if(!na) return 1;
+    if(!nb) return -1;
+    return (na - nb) || (a.time||'').localeCompare(b.time||'');
+  });
   const el = document.getElementById('apptList');
   if(!items.length){ el.innerHTML = `<div class="empty">${t('apptEmpty')}</div>`; return; }
   el.innerHTML = items.map(a => {
-    const d = new Date(a.date+'T'+a.time);
-    const dateLabel = `${WEEKDAYS()[d.getDay()]} ${d.getDate()}/${d.getMonth()+1}`;
+    const next = apptNextOccurrence(a);
+    const timeD = new Date((next ? dstr(next) : a.date) + 'T' + (a.time||'09:00'));
+    const dateLabel = next ? `${WEEKDAYS()[next.getDay()]} ${next.getDate()}/${next.getMonth()+1}` : '—';
+    const rep = apptRepeatLabel(a);
     return `<div class="item-row" data-id="${a.id}">
       <div style="flex:1; min-width:0;">
         <div class="item-text">${escapeHtml(a.title)}</div>
-        <div class="item-meta mono">${dateLabel} — ${fmtTime(d)}</div>
+        <div class="item-meta mono">${dateLabel} — ${fmtTime(timeD)}</div>
+        ${rep ? `<div class="item-meta rep-badge">🔁 ${escapeHtml(rep)}</div>` : ''}
       </div>
       <button class="cal-btn" data-action="ics">📅</button>
       <button class="icon-btn" data-action="del">✕</button>
@@ -334,21 +403,57 @@ function setApptMsg(msg, isError){
   el.style.color = isError ? 'var(--high)' : 'var(--ok)';
   if(msg) setTimeout(()=>{ if(el.textContent===msg) el.textContent=''; }, 3500);
 }
+// ---- repeat controls in the add form ----
+let apptRepeat = 'once';
+let apptDays = [];
+function setupApptRepeat(){
+  document.getElementById('apptDaysSel').innerHTML = daysPicker(apptDays);
+  document.getElementById('apptDaysSel').style.display = apptRepeat === 'custom' ? 'flex' : 'none';
+  document.getElementById('apptUntilWrap').style.display = apptRepeat === 'once' ? 'none' : 'block';
+}
+document.getElementById('apptRepeatSeg').addEventListener('click', e => {
+  const b = e.target.closest('[data-rep]'); if(!b) return;
+  apptRepeat = b.dataset.rep;
+  document.querySelectorAll('#apptRepeatSeg .seg-btn').forEach(x => x.classList.toggle('active', x === b));
+  setupApptRepeat();
+});
+document.getElementById('apptDaysSel').addEventListener('click', e => {
+  const b = e.target.closest('[data-day]'); if(!b) return;
+  const d = Number(b.dataset.day);
+  if(apptDays.includes(d)) apptDays = apptDays.filter(x => x !== d); else apptDays.push(d);
+  b.classList.toggle('on');
+});
+document.getElementById('apptThisWeek').addEventListener('click', () => {
+  const base = document.getElementById('apptDate').value
+    ? dateOnly(new Date(document.getElementById('apptDate').value + 'T00:00:00'))
+    : dateOnly(new Date());
+  const end = mondayOf(base); end.setDate(end.getDate() + 6);   // Sunday of that week
+  document.getElementById('apptUntil').value = dstr(end);
+});
+
 document.getElementById('apptAdd').addEventListener('click', () => {
   const title = document.getElementById('apptTitle').value.trim();
   const date = document.getElementById('apptDate').value;
   const time = document.getElementById('apptTime').value || '09:00';
+  const until = document.getElementById('apptUntil').value || null;
   if(!title){ setApptMsg(t('apptWriteName'), true); return; }
   if(!date){ setApptMsg(t('apptChooseDate'), true); return; }
+  if(apptRepeat === 'custom' && !apptDays.length){ setApptMsg(t('pickDaysMsg'), true); return; }
+  const item = { id: Date.now().toString(), title, date, time,
+    repeat: apptRepeat, days: apptRepeat === 'custom' ? apptDays.slice().sort((a,b)=>a-b) : [],
+    until: apptRepeat === 'once' ? null : until };
   const items = loadAppt();
-  items.push({ id: Date.now().toString(), title, date, time });
+  items.push(item);
   saveAppt(items);
   const start = new Date(date + 'T' + time);
   const end = new Date(start.getTime() + 60*60*1000);
-  addToPhoneCalendar(title, start, end);
+  addToPhoneCalendar(title, start, end, apptRRule(item));
   document.getElementById('apptTitle').value = '';
-  document.getElementById('apptTime').value = '';
   document.getElementById('apptDate').value = todayStr();
+  document.getElementById('apptUntil').value = '';
+  apptRepeat = 'once'; apptDays = [];
+  document.querySelectorAll('#apptRepeatSeg .seg-btn').forEach(x => x.classList.toggle('active', x.dataset.rep === 'once'));
+  setupApptRepeat();
   setApptMsg(t('apptAdded'));
   renderAppt();
   renderUpcomingWidget();
@@ -361,40 +466,52 @@ document.getElementById('apptList').addEventListener('click', e => {
   if(e.target.dataset.action === 'del'){
     items = items.filter(a => a.id !== id); saveAppt(items); renderAppt(); renderUpcomingWidget();
   } else if(e.target.dataset.action === 'ics' && item){
-    const start = new Date(item.date + 'T' + item.time);
+    const next = apptNextOccurrence(item) || dateOnly(new Date(item.date + 'T00:00:00'));
+    const start = new Date(dstr(next) + 'T' + (item.time || '09:00'));
     const end = new Date(start.getTime() + 60*60*1000);
-    addToPhoneCalendar(item.title, start, end);
+    addToPhoneCalendar(item.title, start, end, apptRRule(item));
   }
 });
 
 function renderUpcomingWidget(){
   const el = document.getElementById('upcomingWidget');
-  const today = todayStr();
-  const tmrw = (() => { const d = new Date(); d.setDate(d.getDate()+1); return dateOnly(d).toISOString().slice(0,10); })();
-  const items = loadAppt()
-    .filter(a => a.date === today || a.date === tmrw)
-    .sort((a,b) => new Date(a.date+'T'+a.time) - new Date(b.date+'T'+b.time));
-  if(!items.length){ el.innerHTML = ''; return; }
+  const today = dateOnly(new Date());
+  const tmrw = new Date(today); tmrw.setDate(tmrw.getDate()+1);
+  const rows = [];
+  loadAppt().forEach(a => {
+    [[today,true],[tmrw,false]].forEach(([d,isToday]) => {
+      if(apptOccursOn(a, d)) rows.push({ a, d, isToday, ts:new Date(dstr(d)+'T'+(a.time||'09:00')).getTime() });
+    });
+  });
+  if(!rows.length){ el.innerHTML = ''; return; }
+  rows.sort((x,y) => x.ts - y.ts);
   el.innerHTML = `<div class="upcoming-card">
     <div class="uc-title">${t('upcomingTitle')}</div>
-    ${items.map(a => {
-      const d = new Date(a.date+'T'+a.time);
-      const isToday = a.date === today;
-      return `<div class="upcoming-row">
-        <div class="when">${isToday?t('today'):t('tomorrow')} ${fmtTime(d)}</div>
-        <div class="title">${escapeHtml(a.title)}</div>
-      </div>`;
-    }).join('')}
+    ${rows.map(r => `<div class="upcoming-row">
+        <div class="when">${r.isToday?t('today'):t('tomorrow')} ${fmtTime(new Date(r.ts))}</div>
+        <div class="title">${escapeHtml(r.a.title)}</div>
+      </div>`).join('')}
   </div>`;
 }
 
 // ============================================================
 //  Tasks
 // ============================================================
-function loadTasks(){ try{ return JSON.parse(localStorage.getItem('aziz_tasks')||'[]'); }catch(e){ return []; } }
+// Two priorities only: 'high' (important/urgent) and 'normal' (anytime).
+function loadTasks(){
+  let arr;
+  try{ arr = JSON.parse(localStorage.getItem('aziz_tasks')||'[]'); }catch(e){ return []; }
+  let changed = false;
+  arr = arr.map(t => {
+    if(t.level !== 'high' && t.level !== 'normal'){ changed = true; return Object.assign({}, t, { level:'normal' }); }
+    return t;
+  });
+  if(changed) localStorage.setItem('aziz_tasks', JSON.stringify(arr));
+  return arr;
+}
 function saveTasks(t){ localStorage.setItem('aziz_tasks', JSON.stringify(t)); }
-const LEVEL_ORDER = { high:0, med:1, low:2 };
-const LEVEL_CYCLE = ['high','med','low'];
+const LEVEL_ORDER = { high:0, normal:1 };
+const LEVEL_CYCLE = ['high','normal'];
 
 function taskRowHtml(t){
   return `<div class="item-row" data-id="${t.id}">
@@ -424,7 +541,7 @@ function addTask(){
   const input = document.getElementById('taskInput');
   const text = input.value.trim(); if(!text) return;
   const tasks = loadTasks();
-  tasks.unshift({ id: Date.now().toString(), text, done:false, level:'med' });
+  tasks.unshift({ id: Date.now().toString(), text, done:false, level:'normal' });
   saveTasks(tasks); input.value=''; renderTasks();
 }
 document.getElementById('taskList').addEventListener('click', e => {
@@ -1150,6 +1267,7 @@ applyTheme();
 document.getElementById('apptDate').value = todayStr();
 applyStaticI18n();
 setupHabitAddPickers();
+setupApptRepeat();
 renderMonthGrid(); renderAppt(); renderUpcomingWidget(); renderTasks(); renderWeekStrip(); renderHabits(); renderFood(); renderIdeas(); updateHero();
 setInterval(updateHero, 1000);
 
