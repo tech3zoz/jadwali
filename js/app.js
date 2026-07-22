@@ -408,7 +408,7 @@ let apptRepeat = 'once';
 let apptDays = [];
 function setupApptRepeat(){
   document.getElementById('apptDaysSel').innerHTML = daysPicker(apptDays);
-  document.getElementById('apptDaysSel').style.display = apptRepeat === 'custom' ? 'flex' : 'none';
+  document.getElementById('apptDaysSel').style.display = apptRepeat === 'custom' ? '' : 'none';
   document.getElementById('apptUntilWrap').style.display = apptRepeat === 'once' ? 'none' : 'block';
 }
 document.getElementById('apptRepeatSeg').addEventListener('click', e => {

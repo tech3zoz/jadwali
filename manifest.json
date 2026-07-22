@@ -1,7 +1,7 @@
 {
-  "name": "جدول عزيز",
-  "short_name": "جدولي",
-  "description": "تطبيق تنظيم دوام Operation & Maintenance ومهام وعادات وأفكار تصوير.",
+  "name": "My Routine",
+  "short_name": "My Routine",
+  "description": "Rotating-shift & life organizer: shifts, schedule, tasks, habits, content ideas.",
   "lang": "ar",
   "dir": "rtl",
   "start_url": ".",
