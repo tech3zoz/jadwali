@@ -5,6 +5,7 @@ let lang  = localStorage.getItem('aziz_lang')  || 'en';        // 'en' | 'ar'
 let theme = localStorage.getItem('aziz_theme') || 'minimal';   // 'minimal' | 'starry'
 let shiftPhase = parseInt(localStorage.getItem('aziz_shift_phase'), 10);
 if(isNaN(shiftPhase)) shiftPhase = 0;                          // 0..4 (phase offset in the 5-day cycle)
+let appTitle = localStorage.getItem('aziz_title') || '';       // custom app name (empty = use translated default)
 
 function saveSetting(key, val){ localStorage.setItem(key, val); }
 
@@ -46,6 +47,7 @@ const T = {
     streakUnit_daily:'Day', streakUnit_weekly:'Week', streakUnit_monthly:'Month',
     iconLabel:'Icon', colorLabel:'Color', repeatLabel:'Repeat on', noHabitsToday:'No habits for this day',
     newHabit:'New Habit', summaryTitle:'Weekly Summary', emojiHint:'Tap the box and use your keyboard’s emoji 😀 to pick any icon.',
+    settingsTitle:'App title', appTitlePh:'App title', manageCats:'Categories', newCat:'New category', catNamePh:'Category name',
     left:'left', goalPh:'Goal (optional)', unitPh:'Unit (ml, times…)', addAmountPh:'amount', save:'Save',
     habitNote:'Choose a frequency (daily / weekly / monthly). Add an optional goal + unit to make it measurable — e.g. Drink water 2000 ml, or Gym 3 times/week. Tap ⚙️ on any habit to edit it. The dots show your last 7 periods; the 🔥 streak counts consecutive completed periods.',
     foodDivider:'🍽️ Food', foodCaloriesToday:"Today's calories",
@@ -84,6 +86,7 @@ const T = {
     streakUnit_daily:'يوم', streakUnit_weekly:'أسبوع', streakUnit_monthly:'شهر',
     iconLabel:'الأيقونة', colorLabel:'اللون', repeatLabel:'يتكرر أيام', noHabitsToday:'ما فيه عادات لهذا اليوم',
     newHabit:'عادة جديدة', summaryTitle:'ملخّص الأسبوع', emojiHint:'دوس على المربع واستخدم لوحة الإيموجي 😀 بجوالك لاختيار أي أيقونة.',
+    settingsTitle:'اسم التطبيق', appTitlePh:'اسم التطبيق', manageCats:'التصنيفات', newCat:'تصنيف جديد', catNamePh:'اسم التصنيف',
     left:'باقي', goalPh:'الهدف (اختياري)', unitPh:'الوحدة (مل، مرات…)', addAmountPh:'كمية', save:'حفظ',
     habitNote:'اختر التكرار (يومي / أسبوعي / شهري). تقدر تضيف هدف + وحدة عشان تصير قابلة للقياس — مثل: اشرب ماي ٢٠٠٠ مل، أو نادي ٣ مرات/أسبوع. دوس ⚙️ على أي عادة عشان تعدّلها. النقاط توريك آخر ٧ فترات، والستريك 🔥 يحسب الفترات المكتملة المتتالية.',
     foodDivider:'🍽️ الأكل', foodCaloriesToday:'سعرات اليوم',
@@ -472,10 +475,19 @@ function hideUndoToast(){ document.getElementById('undoToast').classList.remove(
 function dstr(d){ return dateOnly(d).toISOString().slice(0,10); }
 
 const HABIT_COLORS = ['#2DD4BF','#4ADE80','#38BDF8','#A78BFA','#FB7185','#F5B942','#F97316','#F472B6'];
-const EMOJI_SUGGEST = ['⭐','💧','🏋️','💊','📷','🧘','🏃','🚶','🛌','📖','🍎','☀️','🌙','🙏','💪','🧠','📿','🥗','🧴','✍️'];
-// Arabic shows full weekday names; English stays short (per request)
+// Large habit-relevant quick-pick set (the icon box also accepts ANY emoji from the keyboard)
+const EMOJI_SUGGEST = [
+  '⭐','💧','🥛','☕','🍵','🚭','🍎','🥗','🥦','🥕','🍌','🥑','🍚','🍞','🥚','🍗','🐟','🧂','🍫',
+  '🏋️','🏃','🚶','🚴','🧗','🤸','🏊','🤾','⚽','🏀','🎾','🥊','💪','🦵','🧘','⛹️','🏸','🥋',
+  '💊','🩺','🩹','🦷','🪥','🚿','🛁','🧴','🧼','😴','🛌','🌡️','🫀','🩸','❤️','🧠','⚖️',
+  '📖','📚','✍️','📝','💻','🖥️','📅','⏰','🎯','📈','📊','🎓','🔬','🗂️','🌐','🧑‍💻',
+  '🙏','📿','🧎','🕌','🌙','☀️','✨','🕯️','💭','😌','🧘‍♂️',
+  '🧹','🧺','🧽','🛒','🍳','🪴','🌱','🌳','🐕','🐈','🚗','🔧','🪥',
+  '💰','💵','🏦','🪙','🎸','🎮','🎨','📷','🎬','🎧','✈️','🧩','🎵','📸',
+  '👕','💇','🪒','🧖','🌸','💅','🚰','🔥','🏆','✅'
+];
 const WD_FULL = { en:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], ar:['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'] };
-const WD_PICK = { en:['S','M','T','W','T','F','S'], ar:['ح','ن','ث','ر','خ','ج','س'] };  // single-letter toggles, Sun..Sat
+const WD_LONG = { en:['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'], ar:['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'] };
 const DEFAULT_COLOR = HABIT_COLORS[0];
 const ALL_DAYS = [0,1,2,3,4,5,6];
 
@@ -557,7 +569,7 @@ function emojiButtons(){
   return EMOJI_SUGGEST.map(e => `<button type="button" class="emoji-btn">${e}</button>`).join('');
 }
 function daysPicker(sel){
-  const lbl = WD_PICK[lang] || WD_PICK.en;
+  const lbl = WD_LONG[lang] || WD_LONG.en;
   return ALL_DAYS.map(d => `<button type="button" class="day-toggle ${sel.includes(d)?'on':''}" data-day="${d}">${lbl[d]}</button>`).join('');
 }
 // average completion of scheduled habits on a given date (null if none scheduled)
@@ -732,25 +744,28 @@ function renderSummary(){
   const items = loadHabits().slice().sort((a,b) => (a.order||0)-(b.order||0));
   const cols = [];
   for(let i=0; i<7; i++){ const d = new Date(sumWeekStart); d.setDate(sumWeekStart.getDate()+i); cols.push(d); } // Mon..Sun
-  const letters = WD_PICK[lang] || WD_PICK.en; // indexed by getDay (0=Sun)
+  const names = WD_LONG[lang] || WD_LONG.en; // indexed by getDay (0=Sun)
   const today = dateOnly(new Date()).getTime();
-  const head = `<tr><th class="sum-name-h"></th>` +
-    cols.map(d => `<th class="${d.getTime()===today?'is-today':''}">${letters[d.getDay()]}</th>`).join('') + `</tr>`;
-  let rows;
+  const head = `<thead><tr><th class="sum-name-h"></th>` +
+    cols.map(d => `<th class="${d.getTime()===today?'is-today':''}">${names[d.getDay()]}</th>`).join('') +
+    `<th class="sum-total-h">✓</th></tr></thead>`;
+  let body;
   if(!items.length){
-    rows = `<tr><td class="sum-empty" colspan="8">${t('habitEmpty')}</td></tr>`;
+    body = `<tbody><tr><td class="sum-empty" colspan="9">${t('habitEmpty')}</td></tr></tbody>`;
   } else {
-    rows = items.map(h => {
+    body = '<tbody>' + items.map(h => {
+      let doneCount = 0, schedCount = 0;
       const cells = cols.map(d => {
         if(!scheduledOn(h, d)) return `<td><span class="sum-cell na"></span></td>`;
-        const done = habitDoneOn(h, d);
+        schedCount++;
+        const done = habitDoneOn(h, d); if(done) doneCount++;
         return `<td><span class="sum-cell ${done?'done':''}" style="--c:${h.color||DEFAULT_COLOR}"></span></td>`;
       }).join('');
       const icon = h.image ? `<img src="${h.image}" alt="">` : (h.icon || '⭐');
-      return `<tr><td class="sum-name"><span class="sum-ic">${icon}</span><span class="sum-txt">${escapeHtml(h.text)}</span></td>${cells}</tr>`;
-    }).join('');
+      return `<tr><td class="sum-name"><span class="sum-ic">${icon}</span><span class="sum-txt">${escapeHtml(h.text)}</span></td>${cells}<td class="sum-total">${doneCount}/${schedCount}</td></tr>`;
+    }).join('') + '</tbody>';
   }
-  document.getElementById('summaryGrid').innerHTML = head + rows;
+  document.getElementById('summaryGrid').innerHTML = head + body;
   const end = new Date(sumWeekStart); end.setDate(sumWeekStart.getDate()+6);
   const p = n => String(n).padStart(2,'0');
   document.getElementById('sumRange').textContent =
@@ -857,12 +872,36 @@ function saveIdeas(items){ localStorage.setItem('aziz_ideas', JSON.stringify(ite
 let ideaFilter = 'all';
 let selectedAcct = 'tech';
 
+// ---- Idea categories (user-managed) ----
+function loadCats(){
+  try{ const c = JSON.parse(localStorage.getItem('aziz_idea_cats')); if(Array.isArray(c) && c.length) return c; }catch(e){}
+  const def = [{ id:'tech', emoji:'🎬', name:'Tech' }, { id:'chef', emoji:'🍳', name:'Cooking' }];
+  localStorage.setItem('aziz_idea_cats', JSON.stringify(def));
+  return def;
+}
+function saveCats(c){ localStorage.setItem('aziz_idea_cats', JSON.stringify(c)); }
+function catById(id){ return loadCats().find(c => c.id === id); }
+function catEmoji(id){ const c = catById(id); return c ? c.emoji : '🏷️'; }
+function catLabel(id){ const c = catById(id); return c ? `${c.emoji} ${escapeHtml(c.name)}` : '🏷️ —'; }
+
+function renderIdeaControls(){
+  const cats = loadCats();
+  if(!cats.some(c => c.id === selectedAcct)) selectedAcct = cats.length ? cats[0].id : '';
+  if(ideaFilter !== 'all' && !cats.some(c => c.id === ideaFilter)) ideaFilter = 'all';
+  document.getElementById('acctToggle').innerHTML = cats.map(c =>
+    `<button type="button" class="acct-btn ${c.id===selectedAcct?'active':''}" data-acct="${c.id}">${c.emoji} ${escapeHtml(c.name)}</button>`).join('');
+  document.getElementById('ideaFilters').innerHTML =
+    `<button type="button" class="filter-chip ${ideaFilter==='all'?'active':''}" data-filter="all">${t('filterAll')}</button>` +
+    cats.map(c => `<button type="button" class="filter-chip ${ideaFilter===c.id?'active':''}" data-filter="${c.id}">${c.emoji} ${escapeHtml(c.name)}</button>`).join('');
+}
+
 function fmtShortDate(dateStr){
   const d = new Date(dateStr + 'T00:00:00');
   return `${d.getDate()} ${MONTHS()[d.getMonth()]}`;
 }
 
 function renderIdeas(){
+  renderIdeaControls();
   const all = loadIdeas().slice().sort((a,b)=> b.ts - a.ts);
   const items = ideaFilter === 'all' ? all : all.filter(i => i.acct === ideaFilter);
   const el = document.getElementById('ideaList');
@@ -870,7 +909,7 @@ function renderIdeas(){
   el.innerHTML = items.map(i => `
     <div class="idea-card" data-id="${i.id}">
       <div class="idea-head">
-        <span class="idea-tag ${i.acct}">${i.acct==='tech' ? t('tagTech') : t('tagChef')}</span>
+        <span class="idea-tag">${catLabel(i.acct)}</span>
         <div class="item-text" style="flex:1;">${escapeHtml(i.title)}</div>
         ${i.pubDate ? `<span class="idea-date-badge" data-action="date">📆 ${fmtShortDate(i.pubDate)}</span>` : `<button class="icon-btn" data-action="date">📆</button>`}
         <button class="icon-btn" data-action="edit">✏️</button>
@@ -897,18 +936,16 @@ function renderScheduled(){
     <div class="sc-title">${t('scheduledTitle')}</div>
     ${items.map(i => `<div class="sched-row">
         <div class="when">${fmtShortDate(i.pubDate)}</div>
-        <div class="title">${i.acct==='tech'?'🎬':'🍳'} ${escapeHtml(i.title)}</div>
+        <div class="title">${catEmoji(i.acct)} ${escapeHtml(i.title)}</div>
       </div>`).join('')}
   </div>`;
 }
 
-function setAcct(a){
-  selectedAcct = a;
-  document.getElementById('acctTech').classList.toggle('active', a==='tech');
-  document.getElementById('acctChef').classList.toggle('active', a==='chef');
-}
-document.getElementById('acctTech').addEventListener('click', () => setAcct('tech'));
-document.getElementById('acctChef').addEventListener('click', () => setAcct('chef'));
+document.getElementById('acctToggle').addEventListener('click', e => {
+  const b = e.target.closest('[data-acct]'); if(!b) return;
+  selectedAcct = b.dataset.acct;
+  renderIdeaControls();
+});
 
 document.getElementById('ideaAdd').addEventListener('click', () => {
   const title = document.getElementById('ideaTitle').value.trim();
@@ -924,13 +961,10 @@ document.getElementById('ideaAdd').addEventListener('click', () => {
   renderIdeas();
 });
 
-document.querySelectorAll('.filter-chip').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    ideaFilter = btn.dataset.filter;
-    renderIdeas();
-  });
+document.getElementById('ideaFilters').addEventListener('click', e => {
+  const b = e.target.closest('[data-filter]'); if(!b) return;
+  ideaFilter = b.dataset.filter;
+  renderIdeas();
 });
 
 document.getElementById('ideaList').addEventListener('click', e => {
@@ -972,6 +1006,41 @@ document.getElementById('ideaList').addEventListener('focusout', e => {
   renderIdeas();
 });
 
+// ---- Category manager (opened from the Ideas header + button) ----
+function renderCatList(){
+  const cats = loadCats();
+  const el = document.getElementById('catList');
+  el.innerHTML = cats.length ? cats.map(c => `<div class="cat-row" data-id="${c.id}">
+      <span class="cat-emoji">${c.emoji}</span>
+      <span class="cat-name">${escapeHtml(c.name)}</span>
+      <button class="btn-del" data-action="delcat" aria-label="Delete">🗑️</button>
+    </div>`).join('') : `<div class="empty">${t('ideaEmpty')}</div>`;
+}
+document.getElementById('ideasBtn').addEventListener('click', () => {
+  renderCatList();
+  document.getElementById('catsSheet').classList.add('open');
+});
+document.getElementById('catAdd').addEventListener('click', () => {
+  const name = document.getElementById('catName').value.trim();
+  const emoji = document.getElementById('catEmoji').value.trim() || '🏷️';
+  if(!name) return;
+  const cats = loadCats();
+  cats.push({ id: 'c' + Date.now().toString(), emoji, name });
+  saveCats(cats);
+  document.getElementById('catName').value = '';
+  document.getElementById('catEmoji').value = '🏷️';
+  renderCatList(); renderIdeaControls(); renderIdeas();
+});
+document.getElementById('catList').addEventListener('click', e => {
+  const row = e.target.closest('.cat-row'); if(!row) return;
+  if(e.target.dataset.action !== 'delcat') return;
+  const id = row.dataset.id;
+  saveCats(loadCats().filter(c => c.id !== id));
+  if(selectedAcct === id) selectedAcct = '';
+  if(ideaFilter === id) ideaFilter = 'all';
+  renderCatList(); renderIdeaControls(); renderIdeas();
+});
+
 // ============================================================
 //  Tabs
 // ============================================================
@@ -980,7 +1049,11 @@ document.querySelectorAll('nav.bottom button').forEach(btn => {
     document.querySelectorAll('nav.bottom button').forEach(b=>b.classList.remove('active'));
     document.querySelectorAll('section.panel').forEach(p=>p.classList.remove('active'));
     btn.classList.add('active');
-    document.getElementById('panel-'+btn.dataset.tab).classList.add('active');
+    const tab = btn.dataset.tab;
+    document.getElementById('panel-'+tab).classList.add('active');
+    const hdr = document.querySelector('header.top');
+    hdr.classList.toggle('habits-active', tab === 'habits');
+    hdr.classList.toggle('ideas-active', tab === 'ideas');
   });
 });
 
@@ -990,9 +1063,16 @@ function escapeHtml(str){ const d = document.createElement('div'); d.textContent
 //  Settings: language / theme / shift rotation
 // ============================================================
 function applyStaticI18n(){
-  document.title = t('appName');
   document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
   document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.setAttribute('placeholder', t(el.dataset.i18nPh)); });
+  applyAppTitle();
+  const ti = document.getElementById('appTitleInput');
+  if(ti && document.activeElement !== ti) ti.value = appTitle;
+}
+function applyAppTitle(){
+  const title = (appTitle && appTitle.trim()) || t('appName');
+  document.title = title;
+  document.querySelectorAll('[data-i18n="appName"]').forEach(el => { el.textContent = title; });
 }
 function applyLangDir(){
   document.documentElement.lang = lang;
@@ -1037,6 +1117,11 @@ function renderSettings(){
 document.getElementById('settingsBtn').addEventListener('click', () => {
   renderSettings();
   document.getElementById('settingsSheet').classList.add('open');
+});
+document.getElementById('appTitleInput').addEventListener('input', e => {
+  appTitle = e.target.value;
+  if(appTitle.trim()) saveSetting('aziz_title', appTitle); else localStorage.removeItem('aziz_title');
+  applyAppTitle();
 });
 document.querySelectorAll('#settingsSheet [data-close-settings]').forEach(b =>
   b.addEventListener('click', () => document.getElementById('settingsSheet').classList.remove('open')));

@@ -38,11 +38,14 @@
     <div class="sub" data-i18n="tagline">Shift organizer</div>
   </div>
   <div class="head-actions">
-    <button class="head-pill" id="newHabitBtn">
+    <button class="head-pill habit-only" id="newHabitBtn">
       <span class="plus">+</span><span data-i18n="newHabit">New Habit</span>
     </button>
-    <button class="head-icon" id="summaryBtn" aria-label="Weekly summary">
+    <button class="head-icon habit-only" id="summaryBtn" aria-label="Weekly summary">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/></svg>
+    </button>
+    <button class="head-pill ideas-only" id="ideasBtn">
+      <span class="plus">+</span><span data-i18n="manageCats">Categories</span>
     </button>
     <button class="settings-btn" id="settingsBtn" aria-label="Settings">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -142,10 +145,7 @@
 <section class="panel" id="panel-ideas">
   <div class="add-card">
     <input id="ideaTitle" data-i18n-ph="ideaTitlePh" placeholder="Idea title…">
-    <div class="acct-toggle">
-      <button type="button" class="acct-btn active" id="acctTech" data-acct="tech" data-i18n="acctTech">🎬 Tech — @tech3zoz</button>
-      <button type="button" class="acct-btn" id="acctChef" data-acct="chef" data-i18n="acctChef">🍳 Cooking — @chef3zoz</button>
-    </div>
+    <div class="acct-toggle" id="acctToggle"></div>
     <div class="row2">
       <input id="ideaDate" type="date" class="mono">
     </div>
@@ -153,11 +153,7 @@
     <button class="primary" id="ideaAdd" data-i18n="ideaAdd">Add idea</button>
   </div>
   <div id="scheduledWidget"></div>
-  <div class="filter-row">
-    <button class="filter-chip active" data-filter="all" data-i18n="filterAll">All</button>
-    <button class="filter-chip" data-filter="tech" data-i18n="filterTech">🎬 Tech</button>
-    <button class="filter-chip" data-filter="chef" data-i18n="filterChef">🍳 Cooking</button>
-  </div>
+  <div class="filter-row" id="ideaFilters"></div>
   <div id="ideaList"></div>
   <div class="note" data-i18n="ideaNote"></div>
 </section>
@@ -179,6 +175,10 @@
     <button class="sheet-close" data-close-settings aria-label="Close">✕</button>
   </div>
   <div class="settings-body">
+    <div class="settings-group">
+      <div class="settings-label" data-i18n="settingsTitle">App title</div>
+      <input id="appTitleInput" class="sheet-input" data-i18n-ph="appTitlePh" placeholder="App title">
+    </div>
     <div class="settings-group">
       <div class="settings-label" data-i18n="settingsLanguage">Language</div>
       <div class="seg">
@@ -240,6 +240,23 @@
       <button class="week-nav" id="sumNext" aria-label="Next week">›</button>
     </div>
     <div class="sum-wrap"><table class="sum-grid" id="summaryGrid"></table></div>
+  </div>
+</div>
+
+<!-- ================= IDEA CATEGORIES SHEET ================= -->
+<div class="settings-sheet" id="catsSheet">
+  <div class="settings-head">
+    <h2 data-i18n="manageCats">Categories</h2>
+    <button class="sheet-close" data-close-sheet aria-label="Close">✕</button>
+  </div>
+  <div class="settings-body">
+    <div id="catList"></div>
+    <div class="picker-label" data-i18n="newCat">New category</div>
+    <div class="cat-add-row">
+      <input id="catEmoji" class="icon-input" value="🏷️" inputmode="text" autocomplete="off">
+      <input id="catName" class="sheet-input" data-i18n-ph="catNamePh" placeholder="Category name">
+    </div>
+    <button class="primary sheet-primary" id="catAdd" data-i18n="add">Add</button>
   </div>
 </div>
 
