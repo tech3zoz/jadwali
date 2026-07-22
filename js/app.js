@@ -6,6 +6,7 @@ let theme = localStorage.getItem('aziz_theme') || 'minimal';   // 'minimal' | 's
 let shiftPhase = parseInt(localStorage.getItem('aziz_shift_phase'), 10);
 if(isNaN(shiftPhase)) shiftPhase = 0;                          // 0..4 (phase offset in the 5-day cycle)
 let appTitle = localStorage.getItem('aziz_title') || '';       // custom app name (empty = use translated default)
+const APP_BUILD = 'v14';                                       // shown in Settings so the running build is verifiable
 
 function saveSetting(key, val){ localStorage.setItem(key, val); }
 
@@ -555,32 +556,20 @@ function renderTasks(){
   el.innerHTML = taskGroupsHtml(all);
 }
 
-// ---- Priority sheet: same tasks, same grouping, focused full-screen view ----
-function renderPriority(){
-  const all = loadTasks();
-  document.getElementById('priorityList').innerHTML = all.length
-    ? taskGroupsHtml(all)
-    : `<div class="empty">${t('taskEmpty')}</div>`;
-}
-function refreshTaskViews(){
-  renderTasks();
-  const ps = document.getElementById('prioritySheet');
-  if(ps && ps.classList.contains('open')) renderPriority();
-}
-document.getElementById('taskPriorityBtn').addEventListener('click', () => {
-  renderPriority();
-  document.getElementById('prioritySheet').classList.add('open');
-});
+function refreshTaskViews(){ renderTasks(); }
 
-document.getElementById('taskAdd').addEventListener('click', addTask);
-document.getElementById('taskInput').addEventListener('keydown', e => { if(e.key==='Enter') addTask(); });
-function addTask(){
+// Type the task, then choose how to file it: "Priority" adds it as an
+// important task, "Add" adds it as a normal one.
+function addTask(level){
   const input = document.getElementById('taskInput');
   const text = input.value.trim(); if(!text) return;
   const tasks = loadTasks();
-  tasks.unshift({ id: Date.now().toString(), text, done:false, level:'normal' });
+  tasks.unshift({ id: Date.now().toString(), text, done:false, level: level === 'high' ? 'high' : 'normal' });
   saveTasks(tasks); input.value=''; refreshTaskViews();
 }
+document.getElementById('taskAdd').addEventListener('click', () => addTask('normal'));
+document.getElementById('taskAddPriority').addEventListener('click', () => addTask('high'));
+document.getElementById('taskInput').addEventListener('keydown', e => { if(e.key==='Enter') addTask('normal'); });
 function handleTaskListClick(e){
   const row = e.target.closest('.item-row'); if(!row) return;
   const id = row.dataset.id;
@@ -609,7 +598,6 @@ function handleTaskListClick(e){
   }
 }
 document.getElementById('taskList').addEventListener('click', handleTaskListClick);
-document.getElementById('priorityList').addEventListener('click', handleTaskListClick);
 
 // ============================================================
 //  Undo toast
@@ -859,10 +847,20 @@ function renderHabits(){
 }
 
 // ---- Week rail: pick day + navigate weeks ----
+// Selecting a day only re-flags the existing buttons. Rebuilding the whole
+// strip on every tap replaced the very element being tapped, which can make a
+// touch get dropped mid-gesture on iOS.
+function setWeekStripSelection(){
+  const key = dstr(habitDay);
+  document.querySelectorAll('#weekStrip .ws-day').forEach(b => {
+    b.classList.toggle('sel', b.dataset.date === key);
+  });
+}
 document.getElementById('weekStrip').addEventListener('click', e => {
   const b = e.target.closest('[data-date]'); if(!b) return;
   habitDay = dateOnly(new Date(b.dataset.date + 'T00:00:00'));
-  renderWeekStrip(); renderHabits();
+  setWeekStripSelection();
+  renderHabits();
 });
 document.getElementById('weekPrev').addEventListener('click', () => { weekStart.setDate(weekStart.getDate()-7); renderWeekStrip(); });
 document.getElementById('weekNext').addEventListener('click', () => { weekStart.setDate(weekStart.getDate()+7); renderWeekStrip(); });
@@ -1305,11 +1303,11 @@ function rerenderAll(){
   renderTasks(); renderWeekStrip(); renderHabits(); renderFood(); renderIdeas();
   updateHero();
   renderSettings();
-  const ps = document.getElementById('prioritySheet');
-  if(ps && ps.classList.contains('open')) renderPriority();
 }
 
 function renderSettings(){
+  const bb = document.getElementById('buildBadge');
+  if(bb) bb.textContent = `build ${APP_BUILD}`;
   // language + theme active states
   document.querySelectorAll('#settingsSheet [data-set-lang]').forEach(b =>
     b.classList.toggle('active', b.dataset.setLang === lang));
@@ -1372,7 +1370,19 @@ setInterval(updateHero, 1000);
 
 // ---------- Service worker (offline / installable PWA) ----------
 if('serviceWorker' in navigator){
+  // If a NEW service worker takes over an already-running app, reload once so
+  // the page actually picks up the new code instead of staying on the old one.
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if(!hadController || reloaded) return;   // first install => nothing to refresh
+    reloaded = true;
+    location.reload();
+  });
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('service-worker.js').catch(() => {});
+    navigator.serviceWorker.register('service-worker.js').then(reg => {
+      reg.update();                                   // check for a new build on every launch
+      setInterval(() => reg.update(), 60 * 60 * 1000);
+    }).catch(() => {});
   });
 }
