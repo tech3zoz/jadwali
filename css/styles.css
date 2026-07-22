@@ -403,28 +403,63 @@ header.top.ideas-active .ideas-only{display:flex;}
 .sheet-primary{width:100%; margin-top:18px; background:var(--day); color:var(--primary-text); border:none; border-radius:12px; padding:14px; font-size:15px; font-weight:800; cursor:pointer; font-family:inherit;}
 .picker-hint{font-size:11px; color:var(--muted); margin:8px 2px 0; line-height:1.6;}
 
-/* ===== Weekly summary grid ===== */
-.sum-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch; margin-top:4px;}
-.sum-wrap{border:1px solid var(--line); border-radius:16px; background:var(--surface);}
-.sum-grid{border-collapse:collapse; width:100%; min-width:640px;}
-.sum-grid th, .sum-grid td{text-align:center; padding:12px 10px; white-space:nowrap;}
-.sum-grid thead th{font-size:12.5px; font-weight:800; color:var(--muted); border-bottom:1px solid var(--line);}
-.sum-grid thead th.is-today{color:var(--day);}
-.sum-grid tbody tr:not(:last-child) td{border-bottom:1px solid var(--line);}
-.sum-name-h, .sum-name{position:sticky; inset-inline-start:0; background:var(--surface); text-align:start; z-index:1;}
-.sum-name-h{min-width:150px;}
-.sum-name{min-width:150px; max-width:190px;}
-.sum-name .sum-ic{font-size:18px; margin-inline-end:9px;}
-.sum-name .sum-ic img{width:22px; height:22px; border-radius:6px; object-fit:cover; vertical-align:middle;}
-.sum-txt{font-size:13.5px; font-weight:700; overflow:hidden; text-overflow:ellipsis;}
-.sum-total-h{color:var(--muted);}
-.sum-total{font-family:'Space Mono',monospace; font-size:12.5px; font-weight:800; color:var(--afternoon);}
-.sum-cell{display:inline-block; width:26px; height:26px; border-radius:8px; border:1.5px solid var(--line); background:transparent; vertical-align:middle;}
-.sum-cell.done{background:var(--c); border-color:var(--c);}
-.sum-cell.na{border:none; background:none; position:relative;}
-.sum-cell.na::before{content:''; position:absolute; left:50%; top:50%; width:14px; height:14px; margin:-7px 0 0 -7px; border-radius:50%; border:1.5px solid var(--line);}
-.sum-cell.na::after{content:''; position:absolute; left:50%; top:50%; width:16px; height:1.5px; margin:-0.75px 0 0 -8px; background:var(--line); transform:rotate(45deg);}
-.sum-empty{padding:26px; color:var(--muted); font-size:13px; text-align:center;}
+/* ===== Weekly summary: themed banner + full-page vertical day list ===== */
+/* whole sheet gets a motivating dusk-to-dawn gradient instead of the flat app background */
+#summarySheet.summary-sheet{
+  padding-top:0; /* the banner accounts for the safe-area inset itself */
+  background:
+    radial-gradient(1.4px 1.4px at 10% 14%, rgba(255,255,255,.85), transparent),
+    radial-gradient(1px 1px at 26% 8%, rgba(255,255,255,.7), transparent),
+    radial-gradient(1.6px 1.6px at 52% 12%, rgba(255,255,255,.9), transparent),
+    radial-gradient(1px 1px at 70% 20%, rgba(255,255,255,.6), transparent),
+    radial-gradient(1.2px 1.2px at 88% 9%, rgba(255,255,255,.8), transparent),
+    radial-gradient(1px 1px at 95% 24%, rgba(255,255,255,.55), transparent),
+    linear-gradient(180deg, #221046 0%, #4a2f8c 22%, #7856c6 42%, #c97fae 62%, #f0a26f 82%, #ffce85 100%);
+  background-repeat:no-repeat;
+  background-size:100% 100%;
+}
+.summary-banner{position:relative; padding:calc(18px + env(safe-area-inset-top)) 24px 20px; text-align:center; overflow:hidden;}
+.banner-close{
+  position:absolute; top:calc(12px + env(safe-area-inset-top)); inset-inline-end:14px; z-index:2;
+  background:rgba(0,0,0,0.28); border:1px solid rgba(255,255,255,0.35); color:#fff;
+}
+.banner-deco{position:absolute; inset:0; pointer-events:none;}
+.banner-deco span{position:absolute; filter:drop-shadow(0 2px 6px rgba(0,0,0,.3));}
+.banner-sun{top:calc(14px + env(safe-area-inset-top)); inset-inline-start:22px; font-size:28px;}
+.banner-moon{top:calc(20px + env(safe-area-inset-top)); inset-inline-end:64px; font-size:22px;}
+.banner-spark{font-size:13px; color:#fff; opacity:.85;}
+.s1{top:calc(58px + env(safe-area-inset-top)); inset-inline-start:16%;}
+.s2{top:calc(6px + env(safe-area-inset-top)); inset-inline-start:44%; font-size:10px;}
+.s3{top:calc(64px + env(safe-area-inset-top)); inset-inline-end:20%;}
+.s4{top:calc(30px + env(safe-area-inset-top)); inset-inline-end:8%; font-size:10px;}
+.banner-title{
+  font-size:38px; font-weight:700; color:#fff; line-height:1.15; margin-top:20px;
+  text-shadow:0 3px 12px rgba(0,0,0,.35);
+}
+html[lang="en"] .banner-title{font-family:'Segoe Script','Brush Script MT',cursive; font-size:44px;}
+html[lang="ar"] .banner-title{font-family:'Tajawal',sans-serif; font-weight:900; font-size:30px;}
+.banner-sub{margin-top:8px; font-size:13px; font-weight:700; color:rgba(255,255,255,.92);}
+
+.summary-body{padding-top:16px;}
+#summarySheet .week-nav{background:rgba(255,255,255,.16); border-color:rgba(255,255,255,.3); color:#fff;}
+#summarySheet .week-range{color:#fff; font-weight:800;}
+
+.summary-days{display:flex; flex-direction:column; gap:12px; padding-bottom:16px;}
+.day-block{background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:14px 15px;}
+.day-block.is-today{border-color:var(--afternoon); box-shadow:0 0 0 1px var(--afternoon);}
+.day-block-head{display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:9px;}
+.day-block-name{font-size:14px; font-weight:800; color:var(--text);}
+.day-block-date{color:var(--muted); font-size:11.5px; font-weight:600; margin-inline-start:7px;}
+.day-block-frac{font-size:12px; font-weight:800; color:var(--afternoon); flex:none;}
+.day-block-bar{height:5px; border-radius:3px; background:var(--line); overflow:hidden; margin-bottom:11px;}
+.day-block-fill{height:100%; border-radius:3px; background:var(--ok); transition:width .3s;}
+.day-chip-row{display:flex; flex-wrap:wrap; gap:7px;}
+.day-chip{display:flex; align-items:center; gap:6px; padding:6px 10px; border-radius:10px; border:1.5px solid var(--c); color:var(--text); font-size:12px; font-weight:700; opacity:.5;}
+.day-chip.done{background:var(--c); opacity:1; color:#04231a;}
+.day-chip-ic{font-size:14px; line-height:1;}
+.day-chip-ic img{width:16px; height:16px; border-radius:4px; object-fit:cover; vertical-align:middle;}
+.day-chip-tx{white-space:nowrap;}
+.day-chip-empty{font-size:12px; color:var(--muted); font-style:italic;}
 
 /* day-toggle (full names), floating bottom nav, categories, generic idea tag */
 .day-toggle{padding:10px 6px; border-radius:12px; border:1px solid var(--line); background:var(--surface); color:var(--muted); font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit; white-space:nowrap; min-width:0; overflow:hidden; text-overflow:ellipsis; text-align:center;}

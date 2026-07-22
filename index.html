@@ -243,18 +243,27 @@
 </div>
 
 <!-- ================= WEEKLY SUMMARY SHEET ================= -->
-<div class="settings-sheet" id="summarySheet">
-  <div class="settings-head">
-    <h2 data-i18n="summaryTitle">Weekly Summary</h2>
-    <button class="sheet-close" data-close-sheet aria-label="Close">✕</button>
+<div class="settings-sheet summary-sheet" id="summarySheet">
+  <button class="sheet-close banner-close" data-close-sheet aria-label="Close">✕</button>
+  <div class="summary-banner">
+    <div class="banner-deco" aria-hidden="true">
+      <span class="banner-sun">☀️</span>
+      <span class="banner-moon">🌙</span>
+      <span class="banner-spark s1">✦</span>
+      <span class="banner-spark s2">✦</span>
+      <span class="banner-spark s3">✧</span>
+      <span class="banner-spark s4">✦</span>
+    </div>
+    <div class="banner-title" data-i18n="habitTrackerTitle">Habit Tracker</div>
+    <div class="banner-sub" data-i18n="habitTrackerTagline">Small steps, every single day 🌟</div>
   </div>
-  <div class="settings-body">
+  <div class="settings-body summary-body">
     <div class="week-head">
       <button class="week-nav" id="sumPrev" aria-label="Previous week">‹</button>
       <div class="week-range mono" id="sumRange">—</div>
       <button class="week-nav" id="sumNext" aria-label="Next week">›</button>
     </div>
-    <div class="sum-wrap"><table class="sum-grid" id="summaryGrid"></table></div>
+    <div id="summaryGrid" class="summary-days"></div>
   </div>
 </div>
 

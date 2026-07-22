@@ -47,6 +47,7 @@ const T = {
     streakUnit_daily:'Day', streakUnit_weekly:'Week', streakUnit_monthly:'Month',
     iconLabel:'Icon', colorLabel:'Color', repeatLabel:'Repeat on', noHabitsToday:'No habits for this day',
     newHabit:'New Habit', summaryTitle:'Weekly Summary', emojiHint:'Tap the box and use your keyboard’s emoji 😀 to pick any icon.',
+    habitTrackerTitle:'Habit Tracker', habitTrackerTagline:'Small steps, every single day 🌟', restDay:'Rest day — nothing scheduled',
     settingsTitle:'App title', appTitlePh:'App title', manageCats:'Categories', newCat:'New category', catNamePh:'Category name',
     repeatLabelAppt:'Repeat', repOnce:'Once', repDaily:'Daily', repWeekly:'Weekly', repCustom:'Days',
     untilLabel:'Ends on (optional)', thisWeekOnly:'This week only', everyWord:'Every', pickDaysMsg:'Pick at least one day',
@@ -88,6 +89,7 @@ const T = {
     streakUnit_daily:'يوم', streakUnit_weekly:'أسبوع', streakUnit_monthly:'شهر',
     iconLabel:'الأيقونة', colorLabel:'اللون', repeatLabel:'يتكرر أيام', noHabitsToday:'ما فيه عادات لهذا اليوم',
     newHabit:'عادة جديدة', summaryTitle:'ملخّص الأسبوع', emojiHint:'دوس على المربع واستخدم لوحة الإيموجي 😀 بجوالك لاختيار أي أيقونة.',
+    habitTrackerTitle:'متتبع العادات', habitTrackerTagline:'خطوة صغيرة كل يوم 🌟', restDay:'يوم راحة — ما فيه شي مجدول',
     settingsTitle:'اسم التطبيق', appTitlePh:'اسم التطبيق', manageCats:'التصنيفات', newCat:'تصنيف جديد', catNamePh:'اسم التصنيف',
     repeatLabelAppt:'التكرار', repOnce:'مرة', repDaily:'يومي', repWeekly:'أسبوعي', repCustom:'أيام',
     untilLabel:'ينتهي في (اختياري)', thisWeekOnly:'هذا الأسبوع فقط', everyWord:'كل', pickDaysMsg:'اختر يوم واحد على الأقل',
@@ -857,32 +859,44 @@ document.getElementById('summaryBtn').addEventListener('click', openSummary);
 document.getElementById('sumPrev').addEventListener('click', () => { sumWeekStart.setDate(sumWeekStart.getDate()-7); renderSummary(); });
 document.getElementById('sumNext').addEventListener('click', () => { sumWeekStart.setDate(sumWeekStart.getDate()+7); renderSummary(); });
 
+// Full-page vertical layout: every day of the week is its own card, all
+// visible by scrolling down the page — no horizontal swiping between days.
 function renderSummary(){
   const items = loadHabits().slice().sort((a,b) => (a.order||0)-(b.order||0));
-  const cols = [];
-  for(let i=0; i<7; i++){ const d = new Date(sumWeekStart); d.setDate(sumWeekStart.getDate()+i); cols.push(d); } // Mon..Sun
-  const names = WD_LONG[lang] || WD_LONG.en; // indexed by getDay (0=Sun)
-  const today = dateOnly(new Date()).getTime();
-  const head = `<thead><tr><th class="sum-name-h"></th>` +
-    cols.map(d => `<th class="${d.getTime()===today?'is-today':''}">${names[d.getDay()]}</th>`).join('') +
-    `<th class="sum-total-h">✓</th></tr></thead>`;
-  let body;
+  const el = document.getElementById('summaryGrid');
   if(!items.length){
-    body = `<tbody><tr><td class="sum-empty" colspan="9">${t('habitEmpty')}</td></tr></tbody>`;
+    el.innerHTML = `<div class="empty">${t('habitEmpty')}</div>`;
   } else {
-    body = '<tbody>' + items.map(h => {
-      let doneCount = 0, schedCount = 0;
-      const cells = cols.map(d => {
-        if(!scheduledOn(h, d)) return `<td><span class="sum-cell na"></span></td>`;
-        schedCount++;
-        const done = habitDoneOn(h, d); if(done) doneCount++;
-        return `<td><span class="sum-cell ${done?'done':''}" style="--c:${h.color||DEFAULT_COLOR}"></span></td>`;
-      }).join('');
-      const icon = h.image ? `<img src="${h.image}" alt="">` : (h.icon || '⭐');
-      return `<tr><td class="sum-name"><span class="sum-ic">${icon}</span><span class="sum-txt">${escapeHtml(h.text)}</span></td>${cells}<td class="sum-total">${doneCount}/${schedCount}</td></tr>`;
-    }).join('') + '</tbody>';
+    const names = WD_LONG[lang] || WD_LONG.en; // indexed by getDay (0=Sun)
+    const today = dateOnly(new Date()).getTime();
+    const cols = [];
+    for(let i=0; i<7; i++){ const d = new Date(sumWeekStart); d.setDate(sumWeekStart.getDate()+i); cols.push(d); } // Mon..Sun
+
+    el.innerHTML = cols.map(d => {
+      const dayItems = items.filter(h => scheduledOn(h, d));
+      const doneCount = dayItems.filter(h => habitDoneOn(h, d)).length;
+      const schedCount = dayItems.length;
+      const pct = schedCount ? Math.round(doneCount / schedCount * 100) : 0;
+      const isToday = d.getTime() === today;
+      const chips = schedCount
+        ? dayItems.map(h => {
+            const done = habitDoneOn(h, d);
+            const icon = h.image ? `<img src="${h.image}" alt="">` : (h.icon || '⭐');
+            return `<div class="day-chip ${done?'done':''}" style="--c:${h.color||DEFAULT_COLOR}">
+              <span class="day-chip-ic">${icon}</span><span class="day-chip-tx">${escapeHtml(h.text)}</span>
+            </div>`;
+          }).join('')
+        : `<div class="day-chip-empty">${t('restDay')}</div>`;
+      return `<div class="day-block ${isToday?'is-today':''}">
+        <div class="day-block-head">
+          <div class="day-block-name">${names[d.getDay()]}<span class="day-block-date mono">${d.getDate()}/${d.getMonth()+1}</span></div>
+          ${schedCount ? `<div class="day-block-frac mono">${doneCount}/${schedCount}</div>` : ''}
+        </div>
+        ${schedCount ? `<div class="day-block-bar"><div class="day-block-fill" style="width:${pct}%"></div></div>` : ''}
+        <div class="day-chip-row">${chips}</div>
+      </div>`;
+    }).join('');
   }
-  document.getElementById('summaryGrid').innerHTML = head + body;
   const end = new Date(sumWeekStart); end.setDate(sumWeekStart.getDate()+6);
   const p = n => String(n).padStart(2,'0');
   document.getElementById('sumRange').textContent =
