@@ -157,6 +157,19 @@
   <div id="foodList"></div>
 </section>
 
+<section class="panel" id="panel-prayer">
+  <div class="prayer-hero">
+    <div class="prayer-hero-icon">🕌</div>
+    <div class="prayer-hero-info">
+      <div class="prayer-hero-eyebrow" id="prayerEyebrow">—</div>
+      <div class="prayer-hero-name" id="prayerNextName">—</div>
+      <div class="prayer-hero-count mono" id="prayerCountdown">--:--:--</div>
+    </div>
+  </div>
+  <div id="prayerList"></div>
+  <div class="note" data-i18n="prayerApproxNote"></div>
+</section>
+
 <section class="panel" id="panel-ideas">
   <div class="add-card">
     <input id="ideaTitle" data-i18n-ph="ideaTitlePh" placeholder="Idea title…">
@@ -180,6 +193,7 @@
   <button data-tab="appt"><span class="ic">🗓️</span><span data-i18n="navAppt">Appointments</span></button>
   <button data-tab="tasks"><span class="ic">✅</span><span data-i18n="navTasks">Tasks</span></button>
   <button data-tab="habits"><span class="ic"><svg viewBox="0 0 24 24" width="20" height="20"><circle cx="11" cy="13" r="8.5" fill="#EF4444"/><circle cx="11" cy="13" r="5.6" fill="#FFFFFF"/><circle cx="11" cy="13" r="2.8" fill="#EF4444"/><path d="M14 10 L20 4" stroke="#1F2937" stroke-width="1.6" stroke-linecap="round"/><path d="M20 4 L16.7 4.6 L19.4 7.3 Z" fill="#1F2937"/></svg></span><span data-i18n="navHabits">Habits</span></button>
+  <button data-tab="prayer"><span class="ic">🕌</span><span data-i18n="navPrayer">Prayer</span></button>
   <button data-tab="ideas"><span class="ic">💡</span><span data-i18n="navIdeas">Ideas</span></button>
 </nav>
 
@@ -212,6 +226,16 @@
       <div class="settings-label" data-i18n="settingsShift">My shift rotation</div>
       <div class="settings-hint" data-i18n="shiftHint"></div>
       <div class="shift-options" id="shiftOptions"></div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-label" data-i18n="prayerLocationLabel">Location (for prayer times)</div>
+      <div class="settings-hint" data-i18n="prayerLocationHint"></div>
+      <div class="row2">
+        <input id="prayerLat" type="number" step="0.0001" inputmode="decimal" class="mono sheet-input" data-i18n-ph="prayerLatPh" placeholder="Latitude">
+        <input id="prayerLng" type="number" step="0.0001" inputmode="decimal" class="mono sheet-input" data-i18n-ph="prayerLngPh" placeholder="Longitude">
+      </div>
+      <button type="button" class="btn-outline" id="prayerUseLocBtn" data-i18n="prayerUseLocation">Use my location</button>
+      <div class="item-meta" id="prayerLocMsg" style="text-align:center; margin-top:6px;"></div>
     </div>
     <div class="build-badge mono" id="buildBadge"></div>
   </div>

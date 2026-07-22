@@ -6,7 +6,7 @@ let theme = localStorage.getItem('aziz_theme') || 'minimal';   // 'minimal' | 's
 let shiftPhase = parseInt(localStorage.getItem('aziz_shift_phase'), 10);
 if(isNaN(shiftPhase)) shiftPhase = 0;                          // 0..4 (phase offset in the 5-day cycle)
 let appTitle = localStorage.getItem('aziz_title') || '';       // custom app name (empty = use translated default)
-const APP_BUILD = 'v16';                                       // shown in Settings so the running build is verifiable
+const APP_BUILD = 'v17';                                       // shown in Settings so the running build is verifiable
 
 function saveSetting(key, val){ localStorage.setItem(key, val); }
 
@@ -54,6 +54,11 @@ const T = {
     taskPriorityBtn:'Priority', grpImportant:'Important', grpNormal:'Normal (anytime)', grpCompleted:'Completed', noneHere:'Nothing here',
     chooseLevel:'Add this task as…', lvlNormal:'Normal', cancelWord:'Cancel',
     deleteWord:'Delete', editHint:'Tap a habit to edit or delete it.', confirmDelete:'Delete this habit? Its history will be removed.',
+    navPrayer:'Prayer', prayerFajr:'Fajr', prayerSunrise:'Sunrise', prayerDhuhr:'Dhuhr', prayerAsr:'Asr', prayerMaghrib:'Maghrib', prayerIsha:'Isha',
+    prayerNextEyebrow:'Next prayer', prayerNowEyebrow:"It's time for", prayerApproxNote:'Times are calculated offline for your saved location (Umm Al-Qura method) — treat them as approximate and cross-check for important occasions.',
+    prayerLocationLabel:'Location (for prayer times)', prayerLocationHint:'Used only to calculate prayer times on this device — never sent anywhere.',
+    prayerLatPh:'Latitude', prayerLngPh:'Longitude', prayerUseLocation:'Use my location',
+    prayerLocSaved:'Location saved ✓', prayerLocDenied:'Location access denied — enter it manually above', prayerLocUnsupported:'Location isn’t available on this device — enter it manually above',
     repeatLabelAppt:'Repeat', repOnce:'Once', repDaily:'Daily', repWeekly:'Weekly', repCustom:'Days',
     untilLabel:'Ends on (optional)', thisWeekOnly:'This week only', everyWord:'Every', pickDaysMsg:'Pick at least one day',
     left:'left', goalPh:'Goal (optional)', unitPh:'Unit (ml, times…)', addAmountPh:'amount', save:'Save',
@@ -100,6 +105,11 @@ const T = {
     taskPriorityBtn:'الأولوية', grpImportant:'مهم', grpNormal:'عادي (بأي وقت)', grpCompleted:'مكتمل', noneHere:'ما فيه شي هنا',
     chooseLevel:'أضف المهمة كـ…', lvlNormal:'عادي', cancelWord:'إلغاء',
     deleteWord:'حذف', editHint:'دوس على العادة عشان تعدّلها أو تحذفها.', confirmDelete:'تحذف هذه العادة؟ راح ينحذف سجلها.',
+    navPrayer:'الصلاة', prayerFajr:'الفجر', prayerSunrise:'الشروق', prayerDhuhr:'الظهر', prayerAsr:'العصر', prayerMaghrib:'المغرب', prayerIsha:'العشاء',
+    prayerNextEyebrow:'الصلاة القادمة', prayerNowEyebrow:'حان الآن وقت', prayerApproxNote:'الأوقات محسوبة محلياً بدون إنترنت حسب موقعك المحفوظ (طريقة أم القرى) — تقريبية، تأكد منها في المناسبات المهمة.',
+    prayerLocationLabel:'الموقع (لحساب مواقيت الصلاة)', prayerLocationHint:'يُستخدم فقط لحساب المواقيت على جهازك — ما يُرسل لأي مكان.',
+    prayerLatPh:'خط العرض', prayerLngPh:'خط الطول', prayerUseLocation:'استخدم موقعي',
+    prayerLocSaved:'تم حفظ الموقع ✓', prayerLocDenied:'تم رفض إذن الموقع — أدخله يدوياً بالأعلى', prayerLocUnsupported:'الموقع غير متاح على هذا الجهاز — أدخله يدوياً بالأعلى',
     repeatLabelAppt:'التكرار', repOnce:'مرة', repDaily:'يومي', repWeekly:'أسبوعي', repCustom:'أيام',
     untilLabel:'ينتهي في (اختياري)', thisWeekOnly:'هذا الأسبوع فقط', everyWord:'كل', pickDaysMsg:'اختر يوم واحد على الأقل',
     left:'باقي', goalPh:'الهدف (اختياري)', unitPh:'الوحدة (مل، مرات…)', addAmountPh:'كمية', save:'حفظ',
@@ -1280,6 +1290,147 @@ document.getElementById('catList').addEventListener('click', e => {
 });
 
 // ============================================================
+//  Prayer times — calculated fully offline (no API, no location leaves the
+//  device). Umm Al-Qura params: Fajr 18.5°, Isha = Maghrib + 90 min,
+//  Asr = standard (Shafi) shadow factor. Accurate to ~1-2 minutes.
+// ============================================================
+const PRAYER_DEFAULT_LOC = { lat: 24.7136, lng: 46.6753 }; // Riyadh — edit in Settings
+function loadPrayerLoc(){
+  try{
+    const raw = JSON.parse(localStorage.getItem('aziz_prayer_loc'));
+    if(raw && typeof raw.lat === 'number' && typeof raw.lng === 'number') return raw;
+  }catch(e){}
+  return { ...PRAYER_DEFAULT_LOC };
+}
+function savePrayerLoc(loc){ localStorage.setItem('aziz_prayer_loc', JSON.stringify(loc)); }
+
+function sinD(x){ return Math.sin(x*Math.PI/180); }
+function cosD(x){ return Math.cos(x*Math.PI/180); }
+function tanD(x){ return Math.tan(x*Math.PI/180); }
+function acosD(x){ return Math.acos(Math.max(-1,Math.min(1,x)))*180/Math.PI; }
+function asinD(x){ return Math.asin(Math.max(-1,Math.min(1,x)))*180/Math.PI; }
+function atanD(x){ return Math.atan(x)*180/Math.PI; }
+function atan2D(y,x){ return Math.atan2(y,x)*180/Math.PI; }
+function fixDeg(x){ x = x % 360; return x < 0 ? x + 360 : x; }
+
+function julianDay(y, m, d){
+  if(m <= 2){ y -= 1; m += 12; }
+  const A = Math.floor(y/100), B = 2 - A + Math.floor(A/4);
+  return Math.floor(365.25*(y+4716)) + Math.floor(30.6001*(m+1)) + d + B - 1524.5;
+}
+function sunPosition(jd){
+  const D = jd - 2451545.0;
+  const g = fixDeg(357.529 + 0.98560028*D);
+  const q = fixDeg(280.459 + 0.98564736*D);
+  const L = fixDeg(q + 1.915*sinD(g) + 0.020*sinD(2*g));
+  const e = 23.439 - 0.00000036*D;
+  const RA = fixDeg(atan2D(cosD(e)*sinD(L), cosD(L)));
+  const decl = asinD(sinD(e)*sinD(L));
+  let eqt = 4*(q - RA);
+  if(eqt > 20) eqt -= 4*360; if(eqt < -20) eqt += 4*360;   // normalize wrap
+  return { decl, eqt };
+}
+function hourAngle(lat, decl, altitude){
+  const val = (sinD(altitude) - sinD(lat)*sinD(decl)) / (cosD(lat)*cosD(decl));
+  return acosD(val);
+}
+// Returns { fajr, sunrise, dhuhr, asr, maghrib, isha } as Date objects for
+// the given local calendar date + coordinates (device timezone = display tz).
+function computePrayerTimes(date, lat, lng){
+  const jd = julianDay(date.getFullYear(), date.getMonth()+1, date.getDate());
+  const { decl, eqt } = sunPosition(jd);
+  const dhuhrUTC = 12 - lng/15 - eqt/60;
+  const H_fajr = hourAngle(lat, decl, -18.5);
+  const H_sun  = hourAngle(lat, decl, -0.833);
+  const asrAlt = atanD(1 / (1 + Math.abs(tanD(lat - decl))));
+  const H_asr  = hourAngle(lat, decl, asrAlt);
+
+  const mk = (utcHours) => {
+    const ms = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) + utcHours*3600000;
+    return new Date(ms);
+  };
+  return {
+    fajr:    mk(dhuhrUTC - H_fajr/15),
+    sunrise: mk(dhuhrUTC - H_sun/15),
+    dhuhr:   mk(dhuhrUTC + 1/60),
+    asr:     mk(dhuhrUTC + H_asr/15),
+    maghrib: mk(dhuhrUTC + H_sun/15),
+    isha:    mk(dhuhrUTC + H_sun/15 + 90/60)
+  };
+}
+
+const PRAYER_ORDER = ['fajr','sunrise','dhuhr','asr','maghrib','isha'];
+function prayerLabel(key){ return t('prayer' + key.charAt(0).toUpperCase() + key.slice(1)); }
+
+function renderPrayerTimes(){
+  const loc = loadPrayerLoc();
+  const now = new Date();
+  const todayTimes = computePrayerTimes(now, loc.lat, loc.lng);
+
+  // find current + next among today's obligatory prayers (skip sunrise —
+  // it's informational, not one of the 5) and roll into tomorrow near Isha
+  const OBLIGATORY = ['fajr','dhuhr','asr','maghrib','isha'];
+  let current = null, next = null, nextTime = null;
+  for(const key of OBLIGATORY){
+    if(todayTimes[key] <= now) current = key; else if(!next){ next = key; nextTime = todayTimes[key]; }
+  }
+  if(!next){
+    const tmrw = new Date(now); tmrw.setDate(tmrw.getDate()+1);
+    const tmrwTimes = computePrayerTimes(tmrw, loc.lat, loc.lng);
+    next = 'fajr'; nextTime = tmrwTimes.fajr;
+  }
+
+  document.getElementById('prayerEyebrow').textContent = t('prayerNextEyebrow');
+  document.getElementById('prayerNextName').textContent = prayerLabel(next);
+  const diff = nextTime - now;
+  document.getElementById('prayerCountdown').textContent = fmtHMS(diff);
+
+  const el = document.getElementById('prayerList');
+  el.innerHTML = PRAYER_ORDER.map(key => {
+    const isNext = key === next;
+    const isCurrent = key === current;
+    return `<div class="item-row prayer-row ${isNext?'is-next':''}">
+      <div class="prayer-row-name ${isCurrent?'is-current':''}">${prayerLabel(key)}</div>
+      <div class="prayer-row-time mono">${fmtTime(todayTimes[key])}</div>
+    </div>`;
+  }).join('');
+}
+
+function setupPrayerLocationFields(){
+  const loc = loadPrayerLoc();
+  const latEl = document.getElementById('prayerLat'), lngEl = document.getElementById('prayerLng');
+  if(document.activeElement !== latEl) latEl.value = loc.lat;
+  if(document.activeElement !== lngEl) lngEl.value = loc.lng;
+}
+function setPrayerLocMsg(msg, isError){
+  const el = document.getElementById('prayerLocMsg');
+  el.textContent = msg; el.style.color = isError ? 'var(--high)' : 'var(--ok)';
+  if(msg) setTimeout(() => { if(el.textContent === msg) el.textContent = ''; }, 3500);
+}
+document.getElementById('prayerLat').addEventListener('change', () => {
+  const lat = Number(document.getElementById('prayerLat').value);
+  const loc = loadPrayerLoc();
+  if(!isNaN(lat)){ savePrayerLoc({ ...loc, lat }); renderPrayerTimes(); setPrayerLocMsg(t('prayerLocSaved')); }
+});
+document.getElementById('prayerLng').addEventListener('change', () => {
+  const lng = Number(document.getElementById('prayerLng').value);
+  const loc = loadPrayerLoc();
+  if(!isNaN(lng)){ savePrayerLoc({ ...loc, lng }); renderPrayerTimes(); setPrayerLocMsg(t('prayerLocSaved')); }
+});
+document.getElementById('prayerUseLocBtn').addEventListener('click', () => {
+  if(!navigator.geolocation){ setPrayerLocMsg(t('prayerLocUnsupported'), true); return; }   // truthy check, not `in` — the property can exist but be unusable
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      savePrayerLoc(loc); setupPrayerLocationFields(); renderPrayerTimes();
+      setPrayerLocMsg(t('prayerLocSaved'));
+    },
+    () => setPrayerLocMsg(t('prayerLocDenied'), true),
+    { timeout: 10000 }
+  );
+});
+
+// ============================================================
 //  Tabs
 // ============================================================
 document.querySelectorAll('nav.bottom button').forEach(btn => {
@@ -1326,7 +1477,7 @@ function rerenderAll(){
   renderMonthGrid();
   renderQuickView(quickViewDays);
   renderAppt(); renderUpcomingWidget();
-  renderTasks(); renderWeekStrip(); renderHabits(); renderFood(); renderIdeas();
+  renderTasks(); renderWeekStrip(); renderHabits(); renderFood(); renderIdeas(); renderPrayerTimes();
   updateHero();
   renderSettings();
 }
@@ -1334,6 +1485,7 @@ function rerenderAll(){
 function renderSettings(){
   const bb = document.getElementById('buildBadge');
   if(bb) bb.textContent = `build ${APP_BUILD}`;
+  setupPrayerLocationFields();
   // language + theme active states
   document.querySelectorAll('#settingsSheet [data-set-lang]').forEach(b =>
     b.classList.toggle('active', b.dataset.setLang === lang));
@@ -1391,8 +1543,10 @@ document.getElementById('apptDate').value = todayStr();
 applyStaticI18n();
 setupHabitAddPickers();
 setupApptRepeat();
-renderMonthGrid(); renderAppt(); renderUpcomingWidget(); renderTasks(); renderWeekStrip(); renderHabits(); renderFood(); renderIdeas(); updateHero();
+setupPrayerLocationFields();
+renderMonthGrid(); renderAppt(); renderUpcomingWidget(); renderTasks(); renderWeekStrip(); renderHabits(); renderFood(); renderIdeas(); renderPrayerTimes(); updateHero();
 setInterval(updateHero, 1000);
+setInterval(renderPrayerTimes, 1000);
 
 // ---------- Service worker (offline / installable PWA) ----------
 if('serviceWorker' in navigator){
