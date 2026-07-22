@@ -126,12 +126,7 @@
 <section class="panel" id="panel-tasks">
   <div class="add-card">
     <input id="taskInput" data-i18n-ph="taskPh" placeholder="Add a new task…">
-    <div class="row2 add-choice">
-      <button class="btn-priority" id="taskAddPriority">
-        <span class="dot high"></span><span data-i18n="taskPriorityBtn">Priority</span>
-      </button>
-      <button class="primary" id="taskAdd" data-i18n="add">Add</button>
-    </div>
+    <button class="primary" id="taskAdd" data-i18n="add">Add</button>
   </div>
   <div id="taskList"></div>
   <div class="note" data-i18n="taskNote"></div>
@@ -285,6 +280,21 @@
       <input id="catName" class="sheet-input" data-i18n-ph="catNamePh" placeholder="Category name">
     </div>
     <button class="primary sheet-primary" id="catAdd" data-i18n="add">Add</button>
+  </div>
+</div>
+
+<!-- ============ ASK: priority or normal, after pressing Add ============ -->
+<div class="modal" id="levelModal">
+  <div class="modal-card">
+    <div class="modal-title" data-i18n="chooseLevel">Add this task as…</div>
+    <div class="modal-task" id="levelTaskText"></div>
+    <button class="lvl-btn lvl-high" data-lvl="high">
+      <span class="dot high"></span><span data-i18n="taskPriorityBtn">Priority</span>
+    </button>
+    <button class="lvl-btn lvl-normal" data-lvl="normal">
+      <span class="dot normal"></span><span data-i18n="lvlNormal">Normal</span>
+    </button>
+    <button class="lvl-cancel" data-lvl="cancel" data-i18n="cancelWord">Cancel</button>
   </div>
 </div>
 

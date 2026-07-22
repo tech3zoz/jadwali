@@ -6,7 +6,7 @@ let theme = localStorage.getItem('aziz_theme') || 'minimal';   // 'minimal' | 's
 let shiftPhase = parseInt(localStorage.getItem('aziz_shift_phase'), 10);
 if(isNaN(shiftPhase)) shiftPhase = 0;                          // 0..4 (phase offset in the 5-day cycle)
 let appTitle = localStorage.getItem('aziz_title') || '';       // custom app name (empty = use translated default)
-const APP_BUILD = 'v14';                                       // shown in Settings so the running build is verifiable
+const APP_BUILD = 'v15';                                       // shown in Settings so the running build is verifiable
 
 function saveSetting(key, val){ localStorage.setItem(key, val); }
 
@@ -52,6 +52,7 @@ const T = {
     legDone:'Done', legMissed:'Missed', legPending:'Pending', legOff:'Not scheduled',
     settingsTitle:'App title', appTitlePh:'App title', manageCats:'Categories', newCat:'New category', catNamePh:'Category name',
     taskPriorityBtn:'Priority', grpImportant:'Important', grpNormal:'Normal (anytime)', grpCompleted:'Completed', noneHere:'Nothing here',
+    chooseLevel:'Add this task as…', lvlNormal:'Normal', cancelWord:'Cancel',
     repeatLabelAppt:'Repeat', repOnce:'Once', repDaily:'Daily', repWeekly:'Weekly', repCustom:'Days',
     untilLabel:'Ends on (optional)', thisWeekOnly:'This week only', everyWord:'Every', pickDaysMsg:'Pick at least one day',
     left:'left', goalPh:'Goal (optional)', unitPh:'Unit (ml, times…)', addAmountPh:'amount', save:'Save',
@@ -96,6 +97,7 @@ const T = {
     legDone:'تم', legMissed:'فات', legPending:'باقي', legOff:'غير مجدول',
     settingsTitle:'اسم التطبيق', appTitlePh:'اسم التطبيق', manageCats:'التصنيفات', newCat:'تصنيف جديد', catNamePh:'اسم التصنيف',
     taskPriorityBtn:'الأولوية', grpImportant:'مهم', grpNormal:'عادي (بأي وقت)', grpCompleted:'مكتمل', noneHere:'ما فيه شي هنا',
+    chooseLevel:'أضف المهمة كـ…', lvlNormal:'عادي', cancelWord:'إلغاء',
     repeatLabelAppt:'التكرار', repOnce:'مرة', repDaily:'يومي', repWeekly:'أسبوعي', repCustom:'أيام',
     untilLabel:'ينتهي في (اختياري)', thisWeekOnly:'هذا الأسبوع فقط', everyWord:'كل', pickDaysMsg:'اختر يوم واحد على الأقل',
     left:'باقي', goalPh:'الهدف (اختياري)', unitPh:'الوحدة (مل، مرات…)', addAmountPh:'كمية', save:'حفظ',
@@ -558,8 +560,7 @@ function renderTasks(){
 
 function refreshTaskViews(){ renderTasks(); }
 
-// Type the task, then choose how to file it: "Priority" adds it as an
-// important task, "Add" adds it as a normal one.
+// Pressing Add asks whether the task is Priority or Normal, then files it.
 function addTask(level){
   const input = document.getElementById('taskInput');
   const text = input.value.trim(); if(!text) return;
@@ -567,9 +568,25 @@ function addTask(level){
   tasks.unshift({ id: Date.now().toString(), text, done:false, level: level === 'high' ? 'high' : 'normal' });
   saveTasks(tasks); input.value=''; refreshTaskViews();
 }
-document.getElementById('taskAdd').addEventListener('click', () => addTask('normal'));
-document.getElementById('taskAddPriority').addEventListener('click', () => addTask('high'));
-document.getElementById('taskInput').addEventListener('keydown', e => { if(e.key==='Enter') addTask('normal'); });
+function askTaskLevel(){
+  const text = document.getElementById('taskInput').value.trim();
+  if(!text) return;                                   // nothing typed yet
+  document.getElementById('levelTaskText').textContent = text;
+  document.getElementById('levelModal').classList.add('open');
+}
+function closeLevelModal(){ document.getElementById('levelModal').classList.remove('open'); }
+
+document.getElementById('taskAdd').addEventListener('click', askTaskLevel);
+document.getElementById('taskInput').addEventListener('keydown', e => { if(e.key === 'Enter') askTaskLevel(); });
+document.getElementById('levelModal').addEventListener('click', e => {
+  // tapping the dimmed backdrop cancels (keeps whatever was typed)
+  if(e.target.id === 'levelModal'){ closeLevelModal(); return; }
+  const b = e.target.closest('[data-lvl]'); if(!b) return;
+  const lvl = b.dataset.lvl;
+  if(lvl !== 'cancel') addTask(lvl);
+  closeLevelModal();
+});
+document.addEventListener('keydown', e => { if(e.key === 'Escape') closeLevelModal(); });
 function handleTaskListClick(e){
   const row = e.target.closest('.item-row'); if(!row) return;
   const id = row.dataset.id;
