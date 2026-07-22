@@ -4,7 +4,7 @@
 // It used to be cache-first, which meant an installed device kept running old
 // code indefinitely — every update sat behind the cache and never appeared.
 // Now: online => always the newest code; offline => the cached copy.
-const CACHE_VERSION = 'jadwali-v15';
+const CACHE_VERSION = 'jadwali-v16';
 const APP_SHELL = [
   './',
   'index.html',
@@ -46,9 +46,10 @@ self.addEventListener('fetch', event => {
   const url = new URL(req.url);
 
   if(isAppShell(req, url)){
-    // Network-first: newest code wins, cache is only the offline fallback.
+    // Network-first, and bypass the browser's own HTTP cache so a stale
+    // max-age copy can't keep serving old code after a deploy.
     event.respondWith(
-      fetch(req).then(res => {
+      fetch(new Request(url.href, { cache: 'no-cache', credentials: 'same-origin' })).then(res => {
         if(res && res.ok){
           const copy = res.clone();
           caches.open(CACHE_VERSION).then(c => c.put(req, copy));

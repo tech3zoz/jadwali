@@ -6,7 +6,7 @@ let theme = localStorage.getItem('aziz_theme') || 'minimal';   // 'minimal' | 's
 let shiftPhase = parseInt(localStorage.getItem('aziz_shift_phase'), 10);
 if(isNaN(shiftPhase)) shiftPhase = 0;                          // 0..4 (phase offset in the 5-day cycle)
 let appTitle = localStorage.getItem('aziz_title') || '';       // custom app name (empty = use translated default)
-const APP_BUILD = 'v15';                                       // shown in Settings so the running build is verifiable
+const APP_BUILD = 'v16';                                       // shown in Settings so the running build is verifiable
 
 function saveSetting(key, val){ localStorage.setItem(key, val); }
 
@@ -53,6 +53,7 @@ const T = {
     settingsTitle:'App title', appTitlePh:'App title', manageCats:'Categories', newCat:'New category', catNamePh:'Category name',
     taskPriorityBtn:'Priority', grpImportant:'Important', grpNormal:'Normal (anytime)', grpCompleted:'Completed', noneHere:'Nothing here',
     chooseLevel:'Add this task as…', lvlNormal:'Normal', cancelWord:'Cancel',
+    deleteWord:'Delete', editHint:'Tap a habit to edit or delete it.', confirmDelete:'Delete this habit? Its history will be removed.',
     repeatLabelAppt:'Repeat', repOnce:'Once', repDaily:'Daily', repWeekly:'Weekly', repCustom:'Days',
     untilLabel:'Ends on (optional)', thisWeekOnly:'This week only', everyWord:'Every', pickDaysMsg:'Pick at least one day',
     left:'left', goalPh:'Goal (optional)', unitPh:'Unit (ml, times…)', addAmountPh:'amount', save:'Save',
@@ -98,6 +99,7 @@ const T = {
     settingsTitle:'اسم التطبيق', appTitlePh:'اسم التطبيق', manageCats:'التصنيفات', newCat:'تصنيف جديد', catNamePh:'اسم التصنيف',
     taskPriorityBtn:'الأولوية', grpImportant:'مهم', grpNormal:'عادي (بأي وقت)', grpCompleted:'مكتمل', noneHere:'ما فيه شي هنا',
     chooseLevel:'أضف المهمة كـ…', lvlNormal:'عادي', cancelWord:'إلغاء',
+    deleteWord:'حذف', editHint:'دوس على العادة عشان تعدّلها أو تحذفها.', confirmDelete:'تحذف هذه العادة؟ راح ينحذف سجلها.',
     repeatLabelAppt:'التكرار', repOnce:'مرة', repDaily:'يومي', repWeekly:'أسبوعي', repCustom:'أيام',
     untilLabel:'ينتهي في (اختياري)', thisWeekOnly:'هذا الأسبوع فقط', everyWord:'كل', pickDaysMsg:'اختر يوم واحد على الأقل',
     left:'باقي', goalPh:'الهدف (اختياري)', unitPh:'الوحدة (مل، مرات…)', addAmountPh:'كمية', save:'حفظ',
@@ -841,8 +843,9 @@ function renderHabits(){
         </div>
         <div class="panel-actions">
           <button class="primary" data-action="saveedit">${t('save')}</button>
-          <button class="btn-del" data-action="del">🗑️</button>
+          <button class="btn-del" data-action="del">🗑️ ${t('deleteWord')}</button>
         </div>
+        <div class="panel-hint">${t('editHint')}</div>
       </div>`;
     return `<div class="hcard ${done?'done':''}" data-id="${h.id}" style="--c:${h.color||DEFAULT_COLOR}">
         <div class="hcard-main">
@@ -936,6 +939,9 @@ function openHabitSheet(){
   document.getElementById('habitSheet').classList.add('open');
 }
 document.getElementById('newHabitBtn').addEventListener('click', openHabitSheet);
+document.getElementById('habitCancel').addEventListener('click', () => {
+  document.getElementById('habitSheet').classList.remove('open');   // close without adding
+});
 document.querySelectorAll('[data-close-sheet]').forEach(b =>
   b.addEventListener('click', () => b.closest('.settings-sheet').classList.remove('open')));
 
@@ -1021,7 +1027,10 @@ document.getElementById('habitList').addEventListener('click', e => {
   const action = e.target.dataset.action || ((e.target.closest('[data-action]') || {}).dataset || {}).action;
   const key = dstr(habitDay);
   h.log = h.log || {};
-  if(action === 'del'){ items.splice(idx,1); saveHabits(items); renderWeekStrip(); renderHabits(); }
+  if(action === 'del'){
+    if(!confirm(t('confirmDelete'))) return;          // deleting drops its history — confirm first
+    items.splice(idx,1); saveHabits(items); renderWeekStrip(); renderHabits();
+  }
   else if(action === 'toggle'){
     const goal = habitGoalNum(h);
     if(habitAmount(h, key) >= goal) delete h.log[key]; else h.log[key] = goal;

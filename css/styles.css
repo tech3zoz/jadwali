@@ -421,7 +421,25 @@ nav.bottom button.active{color:var(--text); background:var(--surface-2); box-sha
 .hcard-panel .efield:focus{outline:none; border-color:var(--day);}
 .panel-actions{display:flex; gap:8px; margin-top:11px;}
 .panel-actions .primary{flex:1; background:var(--day); color:var(--primary-text); border:none; border-radius:9px; padding:10px; font-size:13.5px; font-weight:800; cursor:pointer; font-family:inherit;}
-.btn-del{background:transparent; border:1px solid var(--line); color:var(--high); border-radius:9px; padding:9px 16px; font-size:15px; cursor:pointer; flex:none;}
+.btn-del{
+  background:rgba(255,90,110,.12); border:1px solid rgba(255,90,110,.5); color:var(--high);
+  border-radius:9px; padding:10px 14px; font-size:13px; font-weight:800;
+  cursor:pointer; flex:none; font-family:inherit; white-space:nowrap;
+}
+.btn-del:active{background:rgba(255,90,110,.26);}
+.panel-hint{font-size:11px; color:var(--muted); margin-top:10px; text-align:center;}
+/* New Habit sheet: Cancel + Add side by side */
+.sheet-actions{display:flex; gap:9px; margin-top:20px;}
+.sheet-actions .primary{
+  flex:2; margin-top:0; border-radius:12px; padding:14px; font-size:15px; font-weight:800;
+  background:var(--day); color:var(--primary-text); border:none; cursor:pointer; font-family:inherit;
+}
+.btn-cancel{
+  flex:1; background:transparent; color:var(--muted); border:1.5px solid var(--line);
+  border-radius:12px; padding:14px; font-size:15px; font-weight:800;
+  cursor:pointer; font-family:inherit;
+}
+.btn-cancel:active{background:var(--surface-2);}
 
 .habit-log{display:flex; gap:6px; margin-top:11px; flex-wrap:wrap; align-items:center;}
 .qadd{background:var(--surface-2); border:1px solid var(--line); color:var(--text); border-radius:9px; padding:7px 11px; font-size:12.5px; font-weight:800; cursor:pointer; font-family:inherit;}
