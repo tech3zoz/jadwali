@@ -6,7 +6,7 @@ let theme = localStorage.getItem('aziz_theme') || 'minimal';   // 'minimal' | 's
 let shiftPhase = parseInt(localStorage.getItem('aziz_shift_phase'), 10);
 if(isNaN(shiftPhase)) shiftPhase = 0;                          // 0..4 (phase offset in the 5-day cycle)
 let appTitle = localStorage.getItem('aziz_title') || '';       // custom app name (empty = use translated default)
-const APP_BUILD = 'v17';                                       // shown in Settings so the running build is verifiable
+const APP_BUILD = 'v18';                                       // shown in Settings so the running build is verifiable
 
 function saveSetting(key, val){ localStorage.setItem(key, val); }
 
@@ -59,6 +59,13 @@ const T = {
     prayerLocationLabel:'Location (for prayer times)', prayerLocationHint:'Used only to calculate prayer times on this device — never sent anywhere.',
     prayerLatPh:'Latitude', prayerLngPh:'Longitude', prayerUseLocation:'Use my location',
     prayerLocSaved:'Location saved ✓', prayerLocDenied:'Location access denied — enter it manually above', prayerLocUnsupported:'Location isn’t available on this device — enter it manually above',
+    qiblaTitle:'🧭 Qibla Direction', qiblaFromNorth:'from true North', qiblaEnableCompass:'Enable Compass', qiblaCompassOn:'Compass on — turn until the Kaaba points up ✓',
+    qiblaUnsupported:'Live compass isn’t supported on this device — use the static bearing above with any compass app.',
+    qiblaDenied:'Compass access denied — you can still use the static bearing above.',
+    qiblaCalibrate:'If the needle seems off, move your phone in a figure-8 to calibrate its compass.',
+    adhkarMorningTitle:'🌅 Morning Adhkar', adhkarEveningTitle:'🌆 Evening Adhkar',
+    adhkarNote:'Full text of the most well-known morning/evening adhkar, for your convenience — please cross-check against a trusted reference (e.g. Hisnul Muslim) rather than relying on this alone. The checklist resets automatically every day.',
+    adhkarDone:'done',
     repeatLabelAppt:'Repeat', repOnce:'Once', repDaily:'Daily', repWeekly:'Weekly', repCustom:'Days',
     untilLabel:'Ends on (optional)', thisWeekOnly:'This week only', everyWord:'Every', pickDaysMsg:'Pick at least one day',
     left:'left', goalPh:'Goal (optional)', unitPh:'Unit (ml, times…)', addAmountPh:'amount', save:'Save',
@@ -110,6 +117,13 @@ const T = {
     prayerLocationLabel:'الموقع (لحساب مواقيت الصلاة)', prayerLocationHint:'يُستخدم فقط لحساب المواقيت على جهازك — ما يُرسل لأي مكان.',
     prayerLatPh:'خط العرض', prayerLngPh:'خط الطول', prayerUseLocation:'استخدم موقعي',
     prayerLocSaved:'تم حفظ الموقع ✓', prayerLocDenied:'تم رفض إذن الموقع — أدخله يدوياً بالأعلى', prayerLocUnsupported:'الموقع غير متاح على هذا الجهاز — أدخله يدوياً بالأعلى',
+    qiblaTitle:'🧭 اتجاه القبلة', qiblaFromNorth:'من الشمال الحقيقي', qiblaEnableCompass:'تفعيل البوصلة', qiblaCompassOn:'البوصلة شغّالة — لف جوالك لين الكعبة تطلع فوق ✓',
+    qiblaUnsupported:'البوصلة الحية غير مدعومة على هذا الجهاز — استخدم الدرجة الثابتة بالأعلى مع أي تطبيق بوصلة.',
+    qiblaDenied:'تم رفض إذن البوصلة — تقدر تستخدم الدرجة الثابتة بالأعلى.',
+    qiblaCalibrate:'لو حسيت إن المؤشر مو مضبوط، حرّك جوالك بشكل رقم 8 عشان تتم معايرة البوصلة.',
+    adhkarMorningTitle:'🌅 أذكار الصباح', adhkarEveningTitle:'🌆 أذكار المساء',
+    adhkarNote:'النص الكامل لأشهر أذكار الصباح والمساء، للتسهيل عليك — يُرجى التأكد منها من مرجع موثوق (مثل حصن المسلم) وعدم الاعتماد الكامل على هذا فقط. القائمة تتصفّر تلقائياً كل يوم.',
+    adhkarDone:'خلصت',
     repeatLabelAppt:'التكرار', repOnce:'مرة', repDaily:'يومي', repWeekly:'أسبوعي', repCustom:'أيام',
     untilLabel:'ينتهي في (اختياري)', thisWeekOnly:'هذا الأسبوع فقط', everyWord:'كل', pickDaysMsg:'اختر يوم واحد على الأقل',
     left:'باقي', goalPh:'الهدف (اختياري)', unitPh:'الوحدة (مل، مرات…)', addAmountPh:'كمية', save:'حفظ',
@@ -1410,25 +1424,168 @@ function setPrayerLocMsg(msg, isError){
 document.getElementById('prayerLat').addEventListener('change', () => {
   const lat = Number(document.getElementById('prayerLat').value);
   const loc = loadPrayerLoc();
-  if(!isNaN(lat)){ savePrayerLoc({ ...loc, lat }); renderPrayerTimes(); setPrayerLocMsg(t('prayerLocSaved')); }
+  if(!isNaN(lat)){ savePrayerLoc({ ...loc, lat }); renderPrayerTimes(); renderQibla(); setPrayerLocMsg(t('prayerLocSaved')); }
 });
 document.getElementById('prayerLng').addEventListener('change', () => {
   const lng = Number(document.getElementById('prayerLng').value);
   const loc = loadPrayerLoc();
-  if(!isNaN(lng)){ savePrayerLoc({ ...loc, lng }); renderPrayerTimes(); setPrayerLocMsg(t('prayerLocSaved')); }
+  if(!isNaN(lng)){ savePrayerLoc({ ...loc, lng }); renderPrayerTimes(); renderQibla(); setPrayerLocMsg(t('prayerLocSaved')); }
 });
 document.getElementById('prayerUseLocBtn').addEventListener('click', () => {
   if(!navigator.geolocation){ setPrayerLocMsg(t('prayerLocUnsupported'), true); return; }   // truthy check, not `in` — the property can exist but be unusable
   navigator.geolocation.getCurrentPosition(
     pos => {
       const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      savePrayerLoc(loc); setupPrayerLocationFields(); renderPrayerTimes();
+      savePrayerLoc(loc); setupPrayerLocationFields(); renderPrayerTimes(); renderQibla();
       setPrayerLocMsg(t('prayerLocSaved'));
     },
     () => setPrayerLocMsg(t('prayerLocDenied'), true),
     { timeout: 10000 }
   );
 });
+
+// ============================================================
+//  Qibla direction — great-circle bearing to the Kaaba (public coordinates),
+//  reusing the same saved location as Prayer Times. Live needle uses the
+//  device's compass (DeviceOrientation); this is untested on real hardware
+//  from here, so treat the live rotation as best-effort until verified.
+// ============================================================
+const KAABA = { lat: 21.4225, lng: 39.8262 };
+function qiblaBearing(lat, lng){
+  const phi1 = lat*Math.PI/180, phi2 = KAABA.lat*Math.PI/180;
+  const dLambda = (KAABA.lng - lng)*Math.PI/180;
+  const y = Math.sin(dLambda)*Math.cos(phi2);
+  const x = Math.cos(phi1)*Math.sin(phi2) - Math.sin(phi1)*Math.cos(phi2)*Math.cos(dLambda);
+  return (Math.atan2(y, x)*180/Math.PI + 360) % 360;
+}
+let qiblaHeading = null;   // device compass heading in degrees, null until enabled
+function renderQibla(){
+  const loc = loadPrayerLoc();
+  const bearing = qiblaBearing(loc.lat, loc.lng);
+  document.getElementById('qiblaDeg').textContent = `${Math.round(bearing)}°`;
+  const rotation = qiblaHeading == null ? bearing : (bearing - qiblaHeading + 360) % 360;
+  document.getElementById('qiblaNeedle').style.transform = `rotate(${rotation}deg)`;
+}
+function onDeviceOrientation(e){
+  let heading = null;
+  if(typeof e.webkitCompassHeading === 'number') heading = e.webkitCompassHeading;          // iOS Safari — already true-north relative
+  else if(e.absolute && typeof e.alpha === 'number') heading = (360 - e.alpha) % 360;        // Android/Chrome deviceorientationabsolute
+  else if(typeof e.alpha === 'number') heading = (360 - e.alpha) % 360;                      // best-effort fallback, may need calibration
+  if(heading != null){ qiblaHeading = heading; renderQibla(); }
+}
+document.getElementById('qiblaEnableBtn').addEventListener('click', () => {
+  const DOE = window.DeviceOrientationEvent;
+  if(!DOE){ document.getElementById('qiblaMsg').textContent = t('qiblaUnsupported'); document.getElementById('qiblaMsg').style.color = 'var(--high)'; return; }
+  const start = () => {
+    const evName = 'ondeviceorientationabsolute' in window ? 'deviceorientationabsolute' : 'deviceorientation';
+    window.addEventListener(evName, onDeviceOrientation);
+    const msg = document.getElementById('qiblaMsg');
+    msg.textContent = t('qiblaCompassOn'); msg.style.color = 'var(--ok)';
+    document.getElementById('qiblaEnableBtn').style.display = 'none';
+  };
+  if(typeof DOE.requestPermission === 'function'){   // iOS 13+ requires a user-gesture permission prompt
+    DOE.requestPermission().then(res => {
+      if(res === 'granted') start();
+      else { const m = document.getElementById('qiblaMsg'); m.textContent = t('qiblaDenied'); m.style.color = 'var(--high)'; }
+    }).catch(() => {
+      const m = document.getElementById('qiblaMsg'); m.textContent = t('qiblaDenied'); m.style.color = 'var(--high)';
+    });
+  } else {
+    start();
+  }
+});
+
+// ============================================================
+//  Adhkar (Morning / Evening) — full text of well-known, widely-cited
+//  adhkar for convenience; verify against a trusted reference. Checklist
+//  resets automatically every day (no history/streak — see adhkarNote).
+// ============================================================
+const ADHKAR = {
+  morning: [
+    { id:'m1', count:1, title:{en:'Ayat al-Kursi', ar:'آية الكرسي'},
+      text:'اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ ۚ لَا تَأْخُذُهُ سِنَةٌ وَلَا نَوْمٌ ۚ لَهُ مَا فِي السَّمَاوَاتِ وَمَا فِي الْأَرْضِ ۗ مَنْ ذَا الَّذِي يَشْفَعُ عِنْدَهُ إِلَّا بِإِذْنِهِ ۚ يَعْلَمُ مَا بَيْنَ أَيْدِيهِمْ وَمَا خَلْفَهُمْ ۖ وَلَا يُحِيطُونَ بِشَيْءٍ مِنْ عِلْمِهِ إِلَّا بِمَا شَاءَ ۚ وَسِعَ كُرْسِيُّهُ السَّمَاوَاتِ وَالْأَرْضَ ۖ وَلَا يَئُودُهُ حِفْظُهُمَا ۚ وَهُوَ الْعَلِيُّ الْعَظِيمُ' },
+    { id:'m2', count:3, title:{en:'Surat Al-Ikhlas', ar:'سورة الإخلاص'},
+      text:'قُلْ هُوَ اللَّهُ أَحَدٌ ۝ اللَّهُ الصَّمَدُ ۝ لَمْ يَلِدْ وَلَمْ يُولَدْ ۝ وَلَمْ يَكُنْ لَهُ كُفُوًا أَحَدٌ' },
+    { id:'m3', count:3, title:{en:'Surat Al-Falaq', ar:'سورة الفلق'},
+      text:'قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ ۝ مِنْ شَرِّ مَا خَلَقَ ۝ وَمِنْ شَرِّ غَاسِقٍ إِذَا وَقَبَ ۝ وَمِنْ شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ ۝ وَمِنْ شَرِّ حَاسِدٍ إِذَا حَسَدَ' },
+    { id:'m4', count:3, title:{en:'Surat An-Nas', ar:'سورة الناس'},
+      text:'قُلْ أَعُوذُ بِرَبِّ النَّاسِ ۝ مَلِكِ النَّاسِ ۝ إِلَٰهِ النَّاسِ ۝ مِنْ شَرِّ الْوَسْوَاسِ الْخَنَّاسِ ۝ الَّذِي يُوَسْوِسُ فِي صُدُورِ النَّاسِ ۝ مِنَ الْجِنَّةِ وَالنَّاسِ' },
+    { id:'m5', count:1, title:{en:'Asbahna wa asbaha al-mulku lillah', ar:'أصبحنا وأصبح الملك لله'},
+      text:'أَصْبَحْنَا وَأَصْبَحَ الْمُلْكُ لِلَّهِ، وَالْحَمْدُ لِلَّهِ، لَا إِلَٰهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ، رَبِّ أَسْأَلُكَ خَيْرَ مَا فِي هَٰذَا الْيَوْمِ وَخَيْرَ مَا بَعْدَهُ، وَأَعُوذُ بِكَ مِنْ شَرِّ مَا فِي هَٰذَا الْيَوْمِ وَشَرِّ مَا بَعْدَهُ' },
+    { id:'m6', count:1, title:{en:"Sayyid al-Istighfar", ar:'سيد الاستغفار'},
+      text:'اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَٰهَ إِلَّا أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، وَأَنَا عَلَىٰ عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ، أَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ، أَبُوءُ لَكَ بِنِعْمَتِكَ عَلَيَّ، وَأَبُوءُ بِذَنْبِي فَاغْفِرْ لِي فَإِنَّهُ لَا يَغْفِرُ الذُّنُوبَ إِلَّا أَنْتَ' },
+    { id:'m7', count:100, title:{en:'Subhan Allahi wa bihamdihi', ar:'سبحان الله وبحمده'}, text:'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ' },
+    { id:'m8', count:10, title:{en:'La ilaha illallah', ar:'لا إله إلا الله وحده'},
+      text:'لَا إِلَٰهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ' },
+    { id:'m9', count:10, title:{en:'Salawat on the Prophet ﷺ', ar:'الصلاة على النبي ﷺ'}, text:'اللَّهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ وَعَلَىٰ آلِ مُحَمَّدٍ' }
+  ],
+  evening: [
+    { id:'e1', count:1, title:{en:'Ayat al-Kursi', ar:'آية الكرسي'},
+      text:'اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ ۚ لَا تَأْخُذُهُ سِنَةٌ وَلَا نَوْمٌ ۚ لَهُ مَا فِي السَّمَاوَاتِ وَمَا فِي الْأَرْضِ ۗ مَنْ ذَا الَّذِي يَشْفَعُ عِنْدَهُ إِلَّا بِإِذْنِهِ ۚ يَعْلَمُ مَا بَيْنَ أَيْدِيهِمْ وَمَا خَلْفَهُمْ ۖ وَلَا يُحِيطُونَ بِشَيْءٍ مِنْ عِلْمِهِ إِلَّا بِمَا شَاءَ ۚ وَسِعَ كُرْسِيُّهُ السَّمَاوَاتِ وَالْأَرْضَ ۖ وَلَا يَئُودُهُ حِفْظُهُمَا ۚ وَهُوَ الْعَلِيُّ الْعَظِيمُ' },
+    { id:'e2', count:3, title:{en:'Surat Al-Ikhlas', ar:'سورة الإخلاص'},
+      text:'قُلْ هُوَ اللَّهُ أَحَدٌ ۝ اللَّهُ الصَّمَدُ ۝ لَمْ يَلِدْ وَلَمْ يُولَدْ ۝ وَلَمْ يَكُنْ لَهُ كُفُوًا أَحَدٌ' },
+    { id:'e3', count:3, title:{en:'Surat Al-Falaq', ar:'سورة الفلق'},
+      text:'قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ ۝ مِنْ شَرِّ مَا خَلَقَ ۝ وَمِنْ شَرِّ غَاسِقٍ إِذَا وَقَبَ ۝ وَمِنْ شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ ۝ وَمِنْ شَرِّ حَاسِدٍ إِذَا حَسَدَ' },
+    { id:'e4', count:3, title:{en:'Surat An-Nas', ar:'سورة الناس'},
+      text:'قُلْ أَعُوذُ بِرَبِّ النَّاسِ ۝ مَلِكِ النَّاسِ ۝ إِلَٰهِ النَّاسِ ۝ مِنْ شَرِّ الْوَسْوَاسِ الْخَنَّاسِ ۝ الَّذِي يُوَسْوِسُ فِي صُدُورِ النَّاسِ ۝ مِنَ الْجِنَّةِ وَالنَّاسِ' },
+    { id:'e5', count:1, title:{en:'Amsayna wa amsa al-mulku lillah', ar:'أمسينا وأمسى الملك لله'},
+      text:'أَمْسَيْنَا وَأَمْسَى الْمُلْكُ لِلَّهِ، وَالْحَمْدُ لِلَّهِ، لَا إِلَٰهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ، رَبِّ أَسْأَلُكَ خَيْرَ مَا فِي هَٰذِهِ اللَّيْلَةِ وَخَيْرَ مَا بَعْدَهَا، وَأَعُوذُ بِكَ مِنْ شَرِّ مَا فِي هَٰذِهِ اللَّيْلَةِ وَشَرِّ مَا بَعْدَهَا' },
+    { id:'e6', count:1, title:{en:'Sayyid al-Istighfar', ar:'سيد الاستغفار'},
+      text:'اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَٰهَ إِلَّا أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، وَأَنَا عَلَىٰ عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ، أَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ، أَبُوءُ لَكَ بِنِعْمَتِكَ عَلَيَّ، وَأَبُوءُ بِذَنْبِي فَاغْفِرْ لِي فَإِنَّهُ لَا يَغْفِرُ الذُّنُوبَ إِلَّا أَنْتَ' },
+    { id:'e7', count:100, title:{en:'Subhan Allahi wa bihamdihi', ar:'سبحان الله وبحمده'}, text:'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ' },
+    { id:'e8', count:10, title:{en:'La ilaha illallah', ar:'لا إله إلا الله وحده'},
+      text:'لَا إِلَٰهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ' },
+    { id:'e9', count:10, title:{en:'Salawat on the Prophet ﷺ', ar:'الصلاة على النبي ﷺ'}, text:'اللَّهُمَّ صَلِّ عَلَىٰ مُحَمَّدٍ وَعَلَىٰ آلِ مُحَمَّدٍ' }
+  ]
+};
+
+function loadAdhkarState(){
+  let st;
+  try{ st = JSON.parse(localStorage.getItem('aziz_adhkar_done')); }catch(e){ st = null; }
+  if(!st || st.date !== todayStr()) st = { date: todayStr(), morning: [], evening: [] };
+  return st;
+}
+function saveAdhkarState(st){ localStorage.setItem('aziz_adhkar_done', JSON.stringify(st)); }
+
+function renderAdhkarList(period){
+  const st = loadAdhkarState();
+  const doneIds = new Set(st[period]);
+  const items = ADHKAR[period];
+  document.getElementById(period === 'morning' ? 'adhkarMorningProgress' : 'adhkarEveningProgress').textContent =
+    `${doneIds.size}/${items.length} ${t('adhkarDone')}`;
+  const el = document.getElementById(period === 'morning' ? 'adhkarMorningList' : 'adhkarEveningList');
+  el.innerHTML = items.map(item => {
+    const done = doneIds.has(item.id);
+    const title = item.title[lang] || item.title.en;
+    return `<div class="adhkar-card ${done?'done':''}" data-id="${item.id}" data-period="${period}">
+      <div class="adhkar-head" data-action="toggle">
+        <div class="chk ${done?'done':''}">${done?'✓':''}</div>
+        <div class="adhkar-title">${escapeHtml(title)}</div>
+        <div class="adhkar-count mono">×${item.count}</div>
+        <button class="icon-btn adhkar-expand" data-action="expand">▾</button>
+      </div>
+      <div class="adhkar-text">${escapeHtml(item.text)}</div>
+    </div>`;
+  }).join('');
+}
+function renderAdhkar(){ renderAdhkarList('morning'); renderAdhkarList('evening'); }
+
+function handleAdhkarClick(e){
+  const card = e.target.closest('.adhkar-card'); if(!card) return;
+  const { id, period } = card.dataset;
+  const action = e.target.dataset.action || ((e.target.closest('[data-action]')||{}).dataset||{}).action;
+  if(action === 'expand'){ card.classList.toggle('open'); return; }
+  if(action === 'toggle'){
+    const st = loadAdhkarState();
+    const set = new Set(st[period]);
+    if(set.has(id)) set.delete(id); else set.add(id);
+    st[period] = Array.from(set);
+    saveAdhkarState(st);
+    renderAdhkarList(period);
+  }
+}
+document.getElementById('adhkarMorningList').addEventListener('click', handleAdhkarClick);
+document.getElementById('adhkarEveningList').addEventListener('click', handleAdhkarClick);
 
 // ============================================================
 //  Tabs
@@ -1477,7 +1634,7 @@ function rerenderAll(){
   renderMonthGrid();
   renderQuickView(quickViewDays);
   renderAppt(); renderUpcomingWidget();
-  renderTasks(); renderWeekStrip(); renderHabits(); renderFood(); renderIdeas(); renderPrayerTimes();
+  renderTasks(); renderWeekStrip(); renderHabits(); renderFood(); renderIdeas(); renderPrayerTimes(); renderQibla(); renderAdhkar();
   updateHero();
   renderSettings();
 }
@@ -1544,9 +1701,10 @@ applyStaticI18n();
 setupHabitAddPickers();
 setupApptRepeat();
 setupPrayerLocationFields();
-renderMonthGrid(); renderAppt(); renderUpcomingWidget(); renderTasks(); renderWeekStrip(); renderHabits(); renderFood(); renderIdeas(); renderPrayerTimes(); updateHero();
+renderMonthGrid(); renderAppt(); renderUpcomingWidget(); renderTasks(); renderWeekStrip(); renderHabits(); renderFood(); renderIdeas(); renderPrayerTimes(); renderQibla(); renderAdhkar(); updateHero();
 setInterval(updateHero, 1000);
 setInterval(renderPrayerTimes, 1000);
+setInterval(renderQibla, 1000);
 
 // ---------- Service worker (offline / installable PWA) ----------
 if('serviceWorker' in navigator){

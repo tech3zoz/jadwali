@@ -4,7 +4,7 @@
 // It used to be cache-first, which meant an installed device kept running old
 // code indefinitely — every update sat behind the cache and never appeared.
 // Now: online => always the newest code; offline => the cached copy.
-const CACHE_VERSION = 'jadwali-v17';
+const CACHE_VERSION = 'jadwali-v18';
 const APP_SHELL = [
   './',
   'index.html',
