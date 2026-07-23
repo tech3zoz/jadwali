@@ -6,7 +6,7 @@ let theme = localStorage.getItem('aziz_theme') || 'minimal';   // 'minimal' | 's
 let shiftPhase = parseInt(localStorage.getItem('aziz_shift_phase'), 10);
 if(isNaN(shiftPhase)) shiftPhase = 0;                          // 0..4 (phase offset in the 5-day cycle)
 let appTitle = localStorage.getItem('aziz_title') || '';       // custom app name (empty = use translated default)
-const APP_BUILD = 'v18';                                       // shown in Settings so the running build is verifiable
+const APP_BUILD = 'v19';                                       // shown in Settings so the running build is verifiable
 
 function saveSetting(key, val){ localStorage.setItem(key, val); }
 
@@ -61,6 +61,7 @@ const T = {
     prayerLocSaved:'Location saved ✓', prayerLocDenied:'Location access denied — enter it manually above', prayerLocUnsupported:'Location isn’t available on this device — enter it manually above',
     qiblaTitle:'🧭 Qibla Direction', qiblaFromNorth:'from true North', qiblaEnableCompass:'Enable Compass', qiblaCompassOn:'Compass on — turn until the Kaaba points up ✓',
     qiblaUnsupported:'Live compass isn’t supported on this device — use the static bearing above with any compass app.',
+    qiblaNoHeading:'Couldn’t get a reliable compass reading on this device — use the static bearing above with any compass app instead.',
     qiblaDenied:'Compass access denied — you can still use the static bearing above.',
     qiblaCalibrate:'If the needle seems off, move your phone in a figure-8 to calibrate its compass.',
     adhkarMorningTitle:'🌅 Morning Adhkar', adhkarEveningTitle:'🌆 Evening Adhkar',
@@ -119,6 +120,7 @@ const T = {
     prayerLocSaved:'تم حفظ الموقع ✓', prayerLocDenied:'تم رفض إذن الموقع — أدخله يدوياً بالأعلى', prayerLocUnsupported:'الموقع غير متاح على هذا الجهاز — أدخله يدوياً بالأعلى',
     qiblaTitle:'🧭 اتجاه القبلة', qiblaFromNorth:'من الشمال الحقيقي', qiblaEnableCompass:'تفعيل البوصلة', qiblaCompassOn:'البوصلة شغّالة — لف جوالك لين الكعبة تطلع فوق ✓',
     qiblaUnsupported:'البوصلة الحية غير مدعومة على هذا الجهاز — استخدم الدرجة الثابتة بالأعلى مع أي تطبيق بوصلة.',
+    qiblaNoHeading:'ما قدرنا نحصل على قراءة بوصلة موثوقة على هذا الجهاز — استخدم الدرجة الثابتة بالأعلى مع أي تطبيق بوصلة بدالها.',
     qiblaDenied:'تم رفض إذن البوصلة — تقدر تستخدم الدرجة الثابتة بالأعلى.',
     qiblaCalibrate:'لو حسيت إن المؤشر مو مضبوط، حرّك جوالك بشكل رقم 8 عشان تتم معايرة البوصلة.',
     adhkarMorningTitle:'🌅 أذكار الصباح', adhkarEveningTitle:'🌆 أذكار المساء',
@@ -1466,22 +1468,40 @@ function renderQibla(){
   const rotation = qiblaHeading == null ? bearing : (bearing - qiblaHeading + 360) % 360;
   document.getElementById('qiblaNeedle').style.transform = `rotate(${rotation}deg)`;
 }
+// webkitCompassHeading (iOS) is always true-north-relative and is the most
+// reliable signal where it exists, regardless of which event carried it.
+// Non-absolute alpha is NOT referenced to true north — using it as a compass
+// heading produces a rotation with no real relationship to true north, so we
+// deliberately do not fall back to it; better to show the static bearing
+// than a confidently-wrong needle.
+let qiblaGotRealHeading = false;
 function onDeviceOrientation(e){
   let heading = null;
-  if(typeof e.webkitCompassHeading === 'number') heading = e.webkitCompassHeading;          // iOS Safari — already true-north relative
-  else if(e.absolute && typeof e.alpha === 'number') heading = (360 - e.alpha) % 360;        // Android/Chrome deviceorientationabsolute
-  else if(typeof e.alpha === 'number') heading = (360 - e.alpha) % 360;                      // best-effort fallback, may need calibration
-  if(heading != null){ qiblaHeading = heading; renderQibla(); }
+  if(typeof e.webkitCompassHeading === 'number') heading = e.webkitCompassHeading;
+  else if(e.absolute === true && typeof e.alpha === 'number') heading = (360 - e.alpha) % 360;
+  if(heading != null){
+    qiblaHeading = heading; qiblaGotRealHeading = true; renderQibla();
+    const msg = document.getElementById('qiblaMsg');
+    if(msg.textContent !== t('qiblaCompassOn')){ msg.textContent = t('qiblaCompassOn'); msg.style.color = 'var(--ok)'; }
+  }
 }
 document.getElementById('qiblaEnableBtn').addEventListener('click', () => {
   const DOE = window.DeviceOrientationEvent;
   if(!DOE){ document.getElementById('qiblaMsg').textContent = t('qiblaUnsupported'); document.getElementById('qiblaMsg').style.color = 'var(--high)'; return; }
   const start = () => {
-    const evName = 'ondeviceorientationabsolute' in window ? 'deviceorientationabsolute' : 'deviceorientation';
-    window.addEventListener(evName, onDeviceOrientation);
+    // Listen on BOTH event names — different browsers/OS versions are
+    // inconsistent about which one actually carries usable heading data, and
+    // webkitCompassHeading is prioritized inside the handler regardless of
+    // which event delivered it.
+    window.addEventListener('deviceorientationabsolute', onDeviceOrientation);
+    window.addEventListener('deviceorientation', onDeviceOrientation);
     const msg = document.getElementById('qiblaMsg');
     msg.textContent = t('qiblaCompassOn'); msg.style.color = 'var(--ok)';
     document.getElementById('qiblaEnableBtn').style.display = 'none';
+    // If nothing usable arrives shortly, say so instead of silently doing nothing.
+    setTimeout(() => {
+      if(!qiblaGotRealHeading){ msg.textContent = t('qiblaNoHeading'); msg.style.color = 'var(--high)'; }
+    }, 2500);
   };
   if(typeof DOE.requestPermission === 'function'){   // iOS 13+ requires a user-gesture permission prompt
     DOE.requestPermission().then(res => {
